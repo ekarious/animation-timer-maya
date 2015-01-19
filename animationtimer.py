@@ -54,7 +54,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         super(AnimationTimerUI, self).__init__(parent)
 
         self.setWindowTitle(TITLE)
-        self.resize(650, 400)
+        self.resize(600, 370)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowFlags(self.windowFlags() |
                             QtCore.Qt.WindowStaysOnTopHint)
@@ -99,12 +99,6 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_save_as.setStatusTip(u"Save Timing as ...")
         action_save_as.setAutoRepeat(False)
         action_save_as.setDisabled(True)
-
-        # Action : Close Timing
-        action_close = QtGui.QAction(u"Close Timing", self)
-        action_close.setStatusTip(u"Close the selected Timing")
-        action_close.setAutoRepeat(False)
-        action_close.setDisabled(True)
 
         # Action : Recent Timing
 
@@ -156,7 +150,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_preferences = QtGui.QAction(u"Preferences", self)
         action_preferences.setStatusTip(u"Open the Preferences Window")
         action_preferences.setAutoRepeat(False)
-        # action_preferences.triggered.connect(self.open_preferences_window)
+        action_preferences.triggered.connect(self.open_preferences_window)
 
         # -----
 
@@ -175,16 +169,15 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_about = QtGui.QAction(u"About", self)
         action_about.setStatusTip(u"About Animation Timer")
         action_about.setAutoRepeat(False)
-        # action_about.triggered.connect(self.open_about_window)
+        action_about.triggered.connect(self.open_about_window)
 
         # Create the menu
         menubar = self.menuBar()
 
         # File menu
         menu_file = menubar.addMenu("File")
-        menu_file.addAction(action_new)
+        # menu_file.addAction(action_new)
         menu_file.addAction(action_open)
-        menu_file.addAction(action_close)
         menu_file.addSeparator()
         menu_file.addAction(action_save)
         menu_file.addAction(action_save_as)
@@ -206,6 +199,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menu_edit.addAction(action_preferences)
 
         # Timing menu
+        # menu_timing = menubar.addMenu("Timing")
 
         # Window menu
         menu_window = menubar.addMenu("Window")
@@ -221,60 +215,85 @@ class AnimationTimerUI(QtGui.QMainWindow):
         Create the controls
         """
         # Timer
-        self.timer_label = QtGui.QLabel("00:00:00")
+        self.font_timer = QtGui.QFont()
+        self.font_timer.setPixelSize(36)
 
-        # MDI Area
-        self.mdi_area = QtGui.QMdiArea()
-        self.mdi_area.setViewMode(QtGui.QMdiArea.TabbedView)
+        self.timer_visual = QtGui.QPushButton("00:00:00")
+        self.timer_visual.setFlat(True)
+        self.timer_visual.setFont(self.font_timer)
+        self.timer_visual.setFixedHeight(50)
+
+        # Center Area
+        self.central_list = CenterList()
 
         # Buttons
-        self.start_btn = QtGui.QPushButton()
-        self.stop_btn = QtGui.QPushButton()
-        self.reset_btn = QtGui.QPushButton()
+        self.font_start = QtGui.QFont()
+        self.font_start.setPixelSize(18)
+
+        self.font_secondary_buttons = QtGui.QFont()
+        self.font_secondary_buttons.setPixelSize(14)
+
+        self.start_btn = QtGui.QPushButton(u"Start")
+        self.start_btn.setFixedSize(60, 40)
+        self.start_btn.setFont(self.font_start)
+
+        self.stop_btn = QtGui.QPushButton(u"Stop")
+        self.stop_btn.setFixedSize(50, 30)
+        self.stop_btn.setFont(self.font_secondary_buttons)
+
+        self.reset_btn = QtGui.QPushButton(u"Reset")
+        self.reset_btn.setFixedSize(50, 30)
+        self.reset_btn.setFont(self.font_secondary_buttons)
+
+        self.timing_option_btn = QtGui.QPushButton(u"No Auto Stop")
+        self.timing_option_btn.setFlat(True)
 
         # Labels
-        self.fps = QtGui.QLabel("25 fps")
+        self.frames = QtGui.QLabel("0")
+        self.frames.setStyleSheet("""
+                               margin-right:10px;
+                               """)
+
+        # ComboBox
+        self.fps = QtGui.QPushButton("24 fps")
+        self.fps.setFlat(True)
 
     def create_layout(self):
 
-        # Vertical right buttons interface
-        buttons_layout = QtGui.QVBoxLayout()
-        buttons_layout.setAlignment(QtCore.Qt.AlignHCenter)
-        buttons_layout.addWidget(self.start_btn)
+        # Buttons
+        buttons_layout = QtGui.QHBoxLayout()
+        buttons_layout.setAlignment(QtCore.Qt.AlignCenter)
         buttons_layout.addWidget(self.stop_btn)
-        buttons_layout.addStretch(1)
+        buttons_layout.addWidget(self.start_btn)
         buttons_layout.addWidget(self.reset_btn)
 
-        # Infos
-        infos_layout = QtGui.QHBoxLayout()
-        # infos_layout.addWidget(self.frames)
-        infos_layout.addWidget(self.fps)
+        combobox_layout = QtGui.QHBoxLayout()
+        combobox_layout.setContentsMargins(10, 0, 0, 0)
+        combobox_layout.setAlignment(QtCore.Qt.AlignLeft)
+        combobox_layout.addWidget(self.fps)
 
-        # Top user interface
-        user_ui_layout = QtGui.QHBoxLayout()
-        user_ui_layout.setAlignment(QtCore.Qt.AlignCenter)
-        user_ui_layout.addWidget(self.timer_label)
+        timing_option_layout = QtGui.QHBoxLayout()
+        timing_option_layout.setContentsMargins(0, 0, 10, 0)
+        timing_option_layout.setAlignment(QtCore.Qt.AlignRight)
+        timing_option_layout.addWidget(self.timing_option_btn)
 
-        # Set Layout for the bottom part
-        main_bottom_layout = QtGui.QHBoxLayout()
-        main_bottom_layout.setContentsMargins(0, 0, 0, 0)
-        main_bottom_layout.addWidget(self.mdi_area)
-        main_bottom_layout.addLayout(buttons_layout)
+        # Controls Layer
+        controls_layer = QtGui.QHBoxLayout()
+        controls_layer.addLayout(combobox_layout)
+        controls_layer.addLayout(buttons_layout)
+        controls_layer.addLayout(timing_option_layout)
 
-        # Create 2 QWidget for basic Layout
-        main_widget_top = QtGui.QWidget()
-        main_widget_top.setFixedHeight(50)
-        main_widget_top.setStyleSheet("background-color:#000000;")
-        main_widget_top.setLayout(user_ui_layout)
-
-        main_widget_bottom = QtGui.QWidget()
-        main_widget_bottom.setLayout(main_bottom_layout)
+        # Timer Layout
+        timer_layout = QtGui.QHBoxLayout()
+        timer_layout.setAlignment(QtCore.Qt.AlignCenter)
+        timer_layout.addWidget(self.timer_visual)
 
         # Set the Main Layout
         main_layout = QtGui.QVBoxLayout()
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(main_widget_top)
-        main_layout.addWidget(main_widget_bottom)
+        main_layout.setContentsMargins(0, 6, 0, 10)
+        main_layout.addLayout(timer_layout)
+        main_layout.addWidget(self.central_list)
+        main_layout.addLayout(controls_layer)
 
         self.central_widget.setLayout(main_layout)
 
@@ -304,13 +323,183 @@ class AnimationTimerUI(QtGui.QMainWindow):
             message
         )
 
+    @classmethod
+    def _load_settings_file(cls):
+        return QtCore.QSettings(QtCore.QSettings.IniFormat,
+                                QtCore.QSettings.UserScope,
+                                u'yannschmidt',
+                                u'Animation Timer')
+
 
 class AnimationTimer(object):
     pass
 
 
 class ATPreferencesWindow(QtGui.QDialog):
-    pass
+
+    def __init__(self, parent):
+        super(ATPreferencesWindow, self).__init__(parent)
+
+        self.setWindowTitle(u'Preferences')
+        self.setFixedSize(400, 350)
+
+        self.create_layout()
+        self.create_connections()
+
+        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings.setFallbacksEnabled(False)
+        self._read_pref_settings()
+
+    def create_layout(self):
+
+        policy = QtGui.QSizePolicy()
+        policy.setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        policy.setVerticalPolicy(QtGui.QSizePolicy.Fixed)
+
+        # Set Widgets
+
+        # Menu List
+        self.menu_list = QtGui.QListWidget()
+        self.menu_list.setFixedWidth(100)
+        self.menu_list.addItem(u'General')
+        self.menu_list.addItem(u'Keyboard')
+        self.menu_list.setCurrentRow(0)
+        self.menu_list.setStyleSheet("background-color:#191919;")
+
+        # Timer option
+        self.frame_default = QtGui.QRadioButton(u"Frame : 0", self)
+        self.time_default = QtGui.QRadioButton(u"Time : 00:00:00", self)
+
+        self.mode_option_vbox = QtGui.QHBoxLayout()
+        self.mode_option_vbox.addWidget(self.time_default)
+        self.mode_option_vbox.addWidget(self.frame_default)
+
+        self.timer_option_group = QtGui.QGroupBox(u'Default Timer')
+        self.timer_option_group.setLayout(self.mode_option_vbox)
+
+        # Remember project
+        self.timeline_fps = QtGui.QCheckBox(
+            u"Set current scene FPS as default.")
+        self.autorised_custom_fps = QtGui.QCheckBox(
+            u"Autorised custom FPS.")
+
+        self.project_option_vbox = QtGui.QVBoxLayout()
+        self.project_option_vbox.addWidget(self.timeline_fps)
+        self.project_option_vbox.addWidget(self.autorised_custom_fps)
+
+        self.project_group = QtGui.QGroupBox(u'Project')
+        self.project_group.setLayout(self.project_option_vbox)
+
+        # Keys on Maya Timeline
+        self.timeline_keys = QtGui.QCheckBox(
+            u"Show keys on Maya Timeline.")
+
+        self.timeline_option_vbox = QtGui.QVBoxLayout()
+        self.timeline_option_vbox.addWidget(self.timeline_keys)
+
+        self.timeline_option_group = QtGui.QGroupBox(u'Timeline')
+        self.timeline_option_group.setLayout(self.timeline_option_vbox)
+
+
+
+        #  Button Box
+        # -----------
+        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
+                                                 QtGui.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.on_accept)
+        self.button_box.rejected.connect(self.on_reject)
+
+        # Set Layouts
+
+        # General tab
+        self.vbox_general = QtGui.QVBoxLayout()
+        self.vbox_general.setAlignment(QtCore.Qt.AlignTop)
+        self.vbox_general.addWidget(self.timer_option_group)
+        self.vbox_general.addWidget(self.project_group)
+        self.vbox_general.addWidget(self.timeline_option_group)
+
+        self.tab_general = QtGui.QWidget()
+        self.tab_general.setLayout(self.vbox_general)
+
+        # Keyboard tab
+        self.vbox_keyboard = QtGui.QVBoxLayout()
+        self.vbox_keyboard.setAlignment(QtCore.Qt.AlignTop)
+        self.vbox_keyboard.addWidget(self.options_keyboard_group)
+
+        self.tab_keyboard = QtGui.QWidget()
+        self.tab_keyboard.setLayout(self.vbox_keyboard)
+
+        # Stacked the *pages*
+        self.menu_stacked = QtGui.QStackedWidget()
+        self.menu_stacked.addWidget(self.tab_general)
+        self.menu_stacked.addWidget(self.tab_keyboard)
+
+        # Layout for widgets
+        self.main_hbox = QtGui.QHBoxLayout()
+        self.main_hbox.addWidget(self.menu_list)
+        self.main_hbox.addWidget(self.menu_stacked)
+
+        # layout for main + buttons
+        self.main_vbox = QtGui.QVBoxLayout()
+        self.main_vbox.addLayout(self.main_hbox)
+        self.main_vbox.addWidget(self.button_box)
+
+        self.setLayout(self.main_vbox)
+
+    def create_connections(self):
+        self.menu_list.currentItemChanged.connect(self._change_current_tab)
+
+    def on_accept(self):
+        self._write_pref_settings()
+        self.accept()
+        return
+
+    def on_reject(self):
+        self.reject()
+        return
+
+    # SLOTS
+    # -----
+    def _change_current_tab(self):
+        row = self.menu_list.currentRow()
+        self.menu_stacked.setCurrentIndex(row)
+        pass
+
+    # Settings
+    # --------
+
+    def _read_pref_settings(self):
+        pass
+
+    def _write_pref_settings(self):
+        pass
+
+
+class CenterList(QtGui.QListView):
+
+    def __init__(self, parent=None):
+        super(CenterList, self).__init__(parent)
+
+
+class FPSComboBox(QtGui.QComboBox):
+
+    def __init__(self, parent):
+        super(FPSComboBox, self).__init__(parent)
+
+        self._load()
+
+    def _load(self):
+
+        self.addItem(u"6 fps")
+        self.addItem(u"12 fps")
+        self.addItem(u"24 fps")
+        self.addItem(u"25 fps")
+        self.addItem(u"30 fps")
+
+        disable = [5]
+        for i in disable:
+            j = self.model().index(i, 0)
+            self.model().setData(j, 0, QtCore.Qt.UserRole-1)
 
 
 if __name__ == "__main__":
