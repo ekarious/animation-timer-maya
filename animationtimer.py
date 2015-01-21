@@ -55,6 +55,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         self.setWindowTitle(TITLE)
         self.resize(600, 370)
+        self.setMinimumSize(400, 300)
+        self.setMaximumWidth(600)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setWindowFlags(self.windowFlags() |
                             QtCore.Qt.WindowStaysOnTopHint)
@@ -71,6 +73,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # Special Windows
         self.preferences_window = ATPreferencesWindow(self)
+        self.fps_window = FPSWindow(self)
+        self.auto_stop_window = AutoStopWindow(self)
 
     def create_menu(self):
         """
@@ -215,8 +219,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.font_timer = QtGui.QFont()
         self.font_timer.setPixelSize(36)
 
-        self.timer_visual = QtGui.QPushButton("00:00:00")
-        self.timer_visual.setFlat(True)
+        self.timer_visual = QtGui.QLabel("00:00:00")
         self.timer_visual.setFont(self.font_timer)
         self.timer_visual.setFixedHeight(50)
 
@@ -261,42 +264,22 @@ class AnimationTimerUI(QtGui.QMainWindow):
         buttons_layout.addWidget(self.start_btn)
         buttons_layout.addWidget(self.reset_btn)
 
-        combobox_layout = QtGui.QHBoxLayout()
-        combobox_layout.setContentsMargins(10, 0, 0, 0)
-        combobox_layout.setAlignment(QtCore.Qt.AlignLeft)
-        combobox_layout.addWidget(self.fps)
+        # Controls layer
+        controls_layer = QtGui.QGridLayout()
+        controls_layer.setContentsMargins(10, 0, 10, 0)
+        controls_layer.addWidget(self.fps, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
+        controls_layer.addLayout(buttons_layout, 0, 1, 0, 1)
+        controls_layer.addWidget(self.timing_option_btn, 0, 2, 1, 1,
+                                 QtCore.Qt.AlignRight)
 
-        timing_option_layout = QtGui.QHBoxLayout()
-        timing_option_layout.setContentsMargins(0, 0, 10, 0)
-        timing_option_layout.setAlignment(QtCore.Qt.AlignRight)
-        timing_option_layout.addWidget(self.timing_option_btn)
-
-        # Controls Layer
-        controls_layer = QtGui.QHBoxLayout()
-        controls_layer.addLayout(combobox_layout)
-        controls_layer.addLayout(buttons_layout)
-        controls_layer.addLayout(timing_option_layout)
-
-        # Timer Layout
-        timer_layout = QtGui.QHBoxLayout()
-        timer_layout.setAlignment(QtCore.Qt.AlignCenter)
-        timer_layout.addWidget(self.timer_visual)
-
-        # spacer_layout = QtGui.QHBoxLayout()
-        # spacer_layout.setContentsMargins(10, 0, 0, 0)
-        # spacer_layout.setAlignment(QtCore.Qt.AlignLeft)
-        # spacer_layout.addWidget(spacer_item)
-
-        frames_layout = QtGui.QHBoxLayout()
-        frames_layout.setContentsMargins(0, 0, 10, 0)
-        frames_layout.setAlignment(QtCore.Qt.AlignRight)
-        frames_layout.addWidget(self.frames)
-
-        # Timer Layer
-        timer_bar_layout = QtGui.QHBoxLayout()
-        timer_bar_layout.addStretch(1)
-        timer_bar_layout.addLayout(timer_layout)
-        timer_bar_layout.addLayout(frames_layout, 1)
+        # Timer bar layer
+        timer_bar_layout = QtGui.QGridLayout()
+        timer_bar_layout.setContentsMargins(10, 0, 10, 0)
+        timer_bar_layout.setColumnStretch(0, 1)
+        timer_bar_layout.setColumnStretch(2, 1)
+        timer_bar_layout.addWidget(self.timer_visual, 0, 1, 0, 1)
+        timer_bar_layout.addWidget(self.frames, 0, 2, 1, 1,
+                                   QtCore.Qt.AlignRight)
 
         # Set the Main Layout
         main_layout = QtGui.QVBoxLayout()
@@ -315,6 +298,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
     def open_preferences_window(self):
         self.preferences_window.exec_()
+
+    def open_fps_window(self):
+        self.fps_window.exec_()
+
+    def open_auto_stop_window(self):
+        self.auto_stop_window.exec_()
 
     def open_about_window(self):
         """
@@ -517,136 +506,15 @@ class CenterList(QtGui.QListView):
         """
         Clear the whole list.
         """
-        self.model.crear()
+        self.model.clear()
 
 
-class FPSComboBox(QtGui.QComboBox):
-
-    def __init__(self, parent):
-        super(FPSComboBox, self).__init__(parent)
-
-        self._load()
-
-    def _load(self):
-
-        self.addItem(u"6 fps")
-        self.addItem(u"12 fps")
-        self.addItem(u"24 fps")
-        self.addItem(u"25 fps")
-        self.addItem(u"30 fps")
-
-        disable = [5]
-        for i in disable:
-            j = self.model().index(i, 0)
-            self.model().setData(j, 0, QtCore.Qt.UserRole-1)
+class FPSWindow(QtGui.QDialog):
+    pass
 
 
-class QFrameColor(QtGui.QFrame):
-
-    lightness_changed = QtCore.Signal(int)
-    alpha_changed = QtCore.Signal(int)
-
-    def __init__(self, parent):
-        super(QFrameColor, self).__init__(parent)
-
-        self.setFixedWidth(50)
-
-        self.color = QtGui.QColor(0, 0, 0)
-
-    def mousePressEvent(self, event):
-        dialog = QtGui.QColorDialog()
-        color = dialog.getColor(self.color)
-
-        if color.isValid():
-            self.color = color
-            self.setStyleSheet("background-color: %s"
-                               % self.color.name())
-            hue, satuation, lightness, alpha = self.color.getHsl()
-            self.lightness_changed.emit(lightness)
-
-    def getColor(self, type=None):
-        """
-        Get the color as a QColor object.
-
-        If type is specified:
-            rgba: Return the rgba of the color
-            name: Return the name as #RRGGBB
-        """
-        if isinstance(self.color, QtGui.QColor):
-            if type is 'rgba':
-                return self.color.getRgb()
-            elif type is 'name':
-                return self.color.name()
-            else:
-                return self.color
-
-    def setColor(self, color):
-        """
-        Set the QColor of the frame from a QColor object.
-        """
-        if isinstance(color, QtGui.QColor) and color.isValid():
-            self.color = color
-            self._update_frame_to_current()
-            self._update_slider_to_current()
-
-    def setColorAsName(self, color):
-        """
-        Set the Qcolor of the frame from a name as #RRGGBB
-        """
-        if isinstance(color, str):
-            if color.startwith('#'):
-                self.color.setNamedColor(color)
-                self._update_frame_to_current()
-                self._update_slider_to_current()
-
-    def setColorAsRgba(self, rgba):
-        """
-        Set the Qcolor of the frame from RGBA values.
-
-        rgba: List of int values
-        """
-        if isinstance(rgba, list):
-            list_result = []
-            for r in rgba:
-                list_result.append(int(r))
-
-            red, green, blue, alpha = list_result
-            self.color.setRgb(red, green, blue, alpha)
-            self._update_frame_to_current()
-            self._update_slider_to_current()
-            self._update_transparency_ui()
-
-    def setLightness(self, value):
-        """
-        Set the lightness of the color
-
-        value: Between 0 and 255
-        """
-        if isinstance(value, int) and value in range(0, 256):
-            hue, saturation, lightness, alpha = self.color.getHsl()
-            self.color.setHsl(hue, saturation, value)
-            self._update_frame_to_current()
-
-    def setAlpha(self, value):
-        """
-        Set the lightness of the color
-
-        value: Between 0 and 255
-        """
-        if isinstance(value, int) and value in range(0, 256):
-            self.color.setAlpha(value)
-
-    def _update_frame_to_current(self):
-        self.setStyleSheet("background-color: %s"
-                           % self.color.name())
-
-    def _update_slider_to_current(self):
-        hue, satuation, lightness, alpha = self.color.getHsl()
-        self.lightness_changed.emit(lightness)
-
-    def _update_transparency_ui(self):
-        hue, satuation, lightness, alpha = self.color.getHsl()
-        self.alpha_changed.emit(alpha)
+class AutoStopWindow(QtGui.QDialog):
+    pass
 
 
 if __name__ == "__main__":
