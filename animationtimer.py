@@ -198,9 +198,6 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menu_edit.addSeparator()
         menu_edit.addAction(action_preferences)
 
-        # Timing menu
-        # menu_timing = menubar.addMenu("Timing")
-
         # Window menu
         menu_window = menubar.addMenu("Window")
         menu_window.addAction(action_always_on_top)
@@ -234,7 +231,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.font_secondary_buttons.setPixelSize(14)
 
         self.start_btn = QtGui.QPushButton(u"Start")
-        self.start_btn.setFixedSize(60, 40)
+        self.start_btn.setFixedSize(60, 35)
         self.start_btn.setFont(self.font_start)
 
         self.stop_btn = QtGui.QPushButton(u"Stop")
@@ -250,9 +247,6 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # Labels
         self.frames = QtGui.QLabel("0")
-        self.frames.setStyleSheet("""
-                               margin-right:10px;
-                               """)
 
         # ComboBox
         self.fps = QtGui.QPushButton("24 fps")
@@ -288,10 +282,26 @@ class AnimationTimerUI(QtGui.QMainWindow):
         timer_layout.setAlignment(QtCore.Qt.AlignCenter)
         timer_layout.addWidget(self.timer_visual)
 
+        # spacer_layout = QtGui.QHBoxLayout()
+        # spacer_layout.setContentsMargins(10, 0, 0, 0)
+        # spacer_layout.setAlignment(QtCore.Qt.AlignLeft)
+        # spacer_layout.addWidget(spacer_item)
+
+        frames_layout = QtGui.QHBoxLayout()
+        frames_layout.setContentsMargins(0, 0, 10, 0)
+        frames_layout.setAlignment(QtCore.Qt.AlignRight)
+        frames_layout.addWidget(self.frames)
+
+        # Timer Layer
+        timer_bar_layout = QtGui.QHBoxLayout()
+        timer_bar_layout.addStretch(1)
+        timer_bar_layout.addLayout(timer_layout)
+        timer_bar_layout.addLayout(frames_layout, 1)
+
         # Set the Main Layout
         main_layout = QtGui.QVBoxLayout()
         main_layout.setContentsMargins(0, 6, 0, 10)
-        main_layout.addLayout(timer_layout)
+        main_layout.addLayout(timer_bar_layout)
         main_layout.addWidget(self.central_list)
         main_layout.addLayout(controls_layer)
 
@@ -362,7 +372,6 @@ class ATPreferencesWindow(QtGui.QDialog):
         self.menu_list = QtGui.QListWidget()
         self.menu_list.setFixedWidth(100)
         self.menu_list.addItem(u'General')
-        self.menu_list.addItem(u'Keyboard')
         self.menu_list.setCurrentRow(0)
         self.menu_list.setStyleSheet("background-color:#191919;")
 
@@ -400,8 +409,6 @@ class ATPreferencesWindow(QtGui.QDialog):
         self.timeline_option_group = QtGui.QGroupBox(u'Timeline')
         self.timeline_option_group.setLayout(self.timeline_option_vbox)
 
-
-
         #  Button Box
         # -----------
         self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
@@ -421,18 +428,9 @@ class ATPreferencesWindow(QtGui.QDialog):
         self.tab_general = QtGui.QWidget()
         self.tab_general.setLayout(self.vbox_general)
 
-        # Keyboard tab
-        self.vbox_keyboard = QtGui.QVBoxLayout()
-        self.vbox_keyboard.setAlignment(QtCore.Qt.AlignTop)
-        self.vbox_keyboard.addWidget(self.options_keyboard_group)
-
-        self.tab_keyboard = QtGui.QWidget()
-        self.tab_keyboard.setLayout(self.vbox_keyboard)
-
         # Stacked the *pages*
         self.menu_stacked = QtGui.QStackedWidget()
         self.menu_stacked.addWidget(self.tab_general)
-        self.menu_stacked.addWidget(self.tab_keyboard)
 
         # Layout for widgets
         self.main_hbox = QtGui.QHBoxLayout()
@@ -480,6 +478,47 @@ class CenterList(QtGui.QListView):
     def __init__(self, parent=None):
         super(CenterList, self).__init__(parent)
 
+        self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+
+        # Model
+        self.model = QtGui.QStandardItemModel(self)
+        # self.model.setRowCount(CenterList.size())
+        # Headers
+        headers = []
+        headers.append(u"ID")
+        headers.append(u"Time")
+        headers.append(u"Frames")
+
+        self.model.setHorizontalHeaderLabels(headers)
+        self.model.setColumnCount(3)
+
+        self.setModel(self.model)
+
+    def add(self, item):
+        """
+        Add a item to the list
+
+        Item contents:
+        - ID
+        - Time
+        - Frame Number
+        """
+        pass
+
+    def remove(self, items):
+        """
+        Remove selected items.
+        """
+        i = self.selectedIndexes()
+        for x in i:
+            self.model.removeRow(x.row())
+
+    def clear(self):
+        """
+        Clear the whole list.
+        """
+        self.model.crear()
+
 
 class FPSComboBox(QtGui.QComboBox):
 
@@ -500,6 +539,114 @@ class FPSComboBox(QtGui.QComboBox):
         for i in disable:
             j = self.model().index(i, 0)
             self.model().setData(j, 0, QtCore.Qt.UserRole-1)
+
+
+class QFrameColor(QtGui.QFrame):
+
+    lightness_changed = QtCore.Signal(int)
+    alpha_changed = QtCore.Signal(int)
+
+    def __init__(self, parent):
+        super(QFrameColor, self).__init__(parent)
+
+        self.setFixedWidth(50)
+
+        self.color = QtGui.QColor(0, 0, 0)
+
+    def mousePressEvent(self, event):
+        dialog = QtGui.QColorDialog()
+        color = dialog.getColor(self.color)
+
+        if color.isValid():
+            self.color = color
+            self.setStyleSheet("background-color: %s"
+                               % self.color.name())
+            hue, satuation, lightness, alpha = self.color.getHsl()
+            self.lightness_changed.emit(lightness)
+
+    def getColor(self, type=None):
+        """
+        Get the color as a QColor object.
+
+        If type is specified:
+            rgba: Return the rgba of the color
+            name: Return the name as #RRGGBB
+        """
+        if isinstance(self.color, QtGui.QColor):
+            if type is 'rgba':
+                return self.color.getRgb()
+            elif type is 'name':
+                return self.color.name()
+            else:
+                return self.color
+
+    def setColor(self, color):
+        """
+        Set the QColor of the frame from a QColor object.
+        """
+        if isinstance(color, QtGui.QColor) and color.isValid():
+            self.color = color
+            self._update_frame_to_current()
+            self._update_slider_to_current()
+
+    def setColorAsName(self, color):
+        """
+        Set the Qcolor of the frame from a name as #RRGGBB
+        """
+        if isinstance(color, str):
+            if color.startwith('#'):
+                self.color.setNamedColor(color)
+                self._update_frame_to_current()
+                self._update_slider_to_current()
+
+    def setColorAsRgba(self, rgba):
+        """
+        Set the Qcolor of the frame from RGBA values.
+
+        rgba: List of int values
+        """
+        if isinstance(rgba, list):
+            list_result = []
+            for r in rgba:
+                list_result.append(int(r))
+
+            red, green, blue, alpha = list_result
+            self.color.setRgb(red, green, blue, alpha)
+            self._update_frame_to_current()
+            self._update_slider_to_current()
+            self._update_transparency_ui()
+
+    def setLightness(self, value):
+        """
+        Set the lightness of the color
+
+        value: Between 0 and 255
+        """
+        if isinstance(value, int) and value in range(0, 256):
+            hue, saturation, lightness, alpha = self.color.getHsl()
+            self.color.setHsl(hue, saturation, value)
+            self._update_frame_to_current()
+
+    def setAlpha(self, value):
+        """
+        Set the lightness of the color
+
+        value: Between 0 and 255
+        """
+        if isinstance(value, int) and value in range(0, 256):
+            self.color.setAlpha(value)
+
+    def _update_frame_to_current(self):
+        self.setStyleSheet("background-color: %s"
+                           % self.color.name())
+
+    def _update_slider_to_current(self):
+        hue, satuation, lightness, alpha = self.color.getHsl()
+        self.lightness_changed.emit(lightness)
+
+    def _update_transparency_ui(self):
+        hue, satuation, lightness, alpha = self.color.getHsl()
+        self.alpha_changed.emit(alpha)
 
 
 if __name__ == "__main__":
