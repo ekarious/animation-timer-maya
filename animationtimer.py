@@ -14,7 +14,7 @@ import maya.cmds as cmds
 # Constants
 TITLE = u"Animation Timer"
 AUTHOR = u"Yann Schmidt"
-VERSION = u"0.1a"
+VERSION = u"0.1d"
 USER_SCRIPT_DIR = cmds.internalVar(usd=True)
 USER_PREFS_DIR = cmds.internalVar(upd=True)
 
@@ -58,8 +58,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.setMinimumSize(400, 300)
         self.setMaximumWidth(600)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-        self.setWindowFlags(self.windowFlags() |
-                            QtCore.Qt.WindowStaysOnTopHint)
+
+        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings.setFallbacksEnabled(False)
+        self._read_window_settings()
 
         self.central_widget = QtGui.QWidget()
         self.setCentralWidget(self.central_widget)
@@ -72,8 +74,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.populate()
 
         # Special Windows
-        self.preferences_window = ATPreferencesWindow(self)
-        self.fps_window = FPSWindow(self)
+        self.fps_window = FramePerSecondWindow(self)
         self.auto_stop_window = AutoStopWindow(self)
 
     def create_menu(self):
@@ -150,24 +151,25 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # -----
 
-        # Action : Open Preferences Window
-        action_preferences = QtGui.QAction(u"Preferences", self)
-        action_preferences.setStatusTip(u"Open the Preferences Window")
-        action_preferences.setAutoRepeat(False)
-        action_preferences.triggered.connect(self.open_preferences_window)
+        # Action : Show on Maya Timeline
+        self.action_show_timeline = QtGui.QAction(u"Show on Timeline", self)
+        self.action_show_timeline.setStatusTip(u"Show on Maya Timeline")
+        self.action_show_timeline.setCheckable(True)
 
         # -----
 
         # Action : Always on Top
-        action_always_on_top = QtGui.QAction(u"Always on Top", self)
-        action_always_on_top.setCheckable(True)
+        self.action_always_on_top = QtGui.QAction(u"Always on Top", self)
+        self.action_always_on_top.setCheckable(True)
+        self.action_always_on_top.triggered.connect(
+            self.on_window_always_on_top_triggered)
 
         # -----
 
         # Action : Documentations
         userguideAction = QtGui.QAction(u"Documentation", self)
         userguideAction.setStatusTip(u"Open the Documentation"
-                                 " inside a web browser")
+                                     " inside a web browser")
 
         # Action : About Window
         action_about = QtGui.QAction(u"About", self)
@@ -180,7 +182,6 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # File menu
         menu_file = menubar.addMenu("File")
-        # menu_file.addAction(action_new)
         menu_file.addAction(action_open)
         menu_file.addSeparator()
         menu_file.addAction(action_save)
@@ -199,12 +200,14 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menu_edit.addSeparator()
         menu_edit.addAction(action_select_all)
         menu_edit.addAction(action_delete)
-        menu_edit.addSeparator()
-        menu_edit.addAction(action_preferences)
+
+        # Maya menu
+        menu_maya = menubar.addMenu("Maya")
+        menu_maya.addAction(self.action_show_timeline)
 
         # Window menu
         menu_window = menubar.addMenu("Window")
-        menu_window.addAction(action_always_on_top)
+        menu_window.addAction(self.action_always_on_top)
 
         # Help menu
         menu_help = menubar.addMenu("Help")
@@ -236,6 +239,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.start_btn = QtGui.QPushButton(u"Start")
         self.start_btn.setFixedSize(60, 35)
         self.start_btn.setFont(self.font_start)
+        self.start_btn.setDefault(True)
 
         self.stop_btn = QtGui.QPushButton(u"Stop")
         self.stop_btn.setFixedSize(50, 30)
@@ -291,18 +295,37 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.central_widget.setLayout(main_layout)
 
     def create_connections(self):
-        pass
+        self.fps.clicked.connect(self.open_fps_window)
+        self.timing_option_btn.clicked.connect(self.open_auto_stop_window)
+
+        self.start_btn.clicked.connect(self.on_start_btn_clicked)
+        self.stop_btn.clicked.connect(self.on_stop_btn_clicked)
+        self.reset_btn.clicked.connect(self.on_reset_btn_clicked)
 
     def populate(self):
         pass
 
-    def open_preferences_window(self):
-        self.preferences_window.exec_()
-
     def open_fps_window(self):
+        """
+        Can choose the fps in a separate window
+        """
+        current_list = self.fps.text().split(' ')
+        if int(current_list[0]) in FramePerSecondWindow.fps_preset_list:
+            self.fps_window.radio_preset.setChecked(True)
+            n = self.fps_window.fps_combobox.findText(current_list[0])
+            self.fps_window.fps_combobox.setCurrentIndex(n)
+            self.fps_window.on_preset_selected()
+        else:
+            self.fps_window.radio_custom.setChecked(True)
+            self.fps_window.fps_custom_spinbox.setValue(int(current_list[0]))
+            self.fps_window.on_custom_selected()
+
         self.fps_window.exec_()
 
     def open_auto_stop_window(self):
+        """
+        Can choose auto stop condition in a new window
+        """
         self.auto_stop_window.exec_()
 
     def open_about_window(self):
@@ -322,144 +345,94 @@ class AnimationTimerUI(QtGui.QMainWindow):
             message
         )
 
+    # SLOTS
+    # -----
+
+    def on_start_btn_clicked(self):
+        print("Start btn clicked.")
+
+    def on_stop_btn_clicked(self):
+        print("Stop btn clicked.")
+
+    def on_reset_btn_clicked(self):
+        print("Reset btn clicked.")
+
+    def on_maya_show_timeline_triggered(self):
+        print("Show on timeline checkbox triggered.")
+
+    def on_window_always_on_top_triggered(self):
+        flags = self.windowFlags()
+        if self.action_always_on_top.isChecked():
+            flags |= QtCore.Qt.WindowStaysOnTopHint
+            self.setWindowFlags(flags)
+            self.show()
+        else:
+            flags &= ~QtCore.Qt.WindowStaysOnTopHint
+            self.setWindowFlags(flags)
+            self.show()
+
+    # Others
+
+    def center_window(self):
+        """
+        Set the window at the center of the screen
+        """
+        qr = self.frameGeometry()
+        cp = QtGui.QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
+
     @classmethod
     def _load_settings_file(cls):
         return QtCore.QSettings(QtCore.QSettings.IniFormat,
                                 QtCore.QSettings.UserScope,
-                                u'yannschmidt',
+                                u'yannschmidt.com/Animation Timer',
                                 u'Animation Timer')
+
+    def _read_window_settings(self):
+        """
+        Read windows attributes from settings.
+        """
+        settings = self.settings
+
+        settings.beginGroup("mainwindow")
+
+        # Read data
+        if settings.value("pos") is None:
+            # No pos data yet
+            self.center_window()
+        else:
+            self.move(settings.value("pos", self.pos()))
+
+        settings.endGroup()
+
+    def _write_window_settings(self):
+        """
+        Called when window moved or closed
+        """
+        settings = self.settings
+
+        settings.beginGroup("MainWindow")
+
+        # Write data
+        settings.setValue("pos", self.pos())
+
+        settings.endGroup()
+
+    # Overloadding events
+    # -------------------
+
+    def closeEvent(self, event):
+        # Save window attributes settings on close
+        self._write_window_settings()
+
+    def moveEvent(self, event):
+        # Save window attributes settings on move
+        self._write_window_settings()
 
 
 class AnimationTimer(object):
     pass
-
-
-class ATPreferencesWindow(QtGui.QDialog):
-
-    def __init__(self, parent):
-        super(ATPreferencesWindow, self).__init__(parent)
-
-        self.setWindowTitle(u'Preferences')
-        self.setFixedSize(400, 350)
-
-        self.create_layout()
-        self.create_connections()
-
-        self.settings = AnimationTimerUI._load_settings_file()
-        self.settings.setFallbacksEnabled(False)
-        self._read_pref_settings()
-
-    def create_layout(self):
-
-        policy = QtGui.QSizePolicy()
-        policy.setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
-        policy.setVerticalPolicy(QtGui.QSizePolicy.Fixed)
-
-        # Set Widgets
-
-        # Menu List
-        self.menu_list = QtGui.QListWidget()
-        self.menu_list.setFixedWidth(100)
-        self.menu_list.addItem(u'General')
-        self.menu_list.setCurrentRow(0)
-        self.menu_list.setStyleSheet("background-color:#191919;")
-
-        # Timer option
-        self.frame_default = QtGui.QRadioButton(u"Frame : 0", self)
-        self.time_default = QtGui.QRadioButton(u"Time : 00:00:00", self)
-
-        self.mode_option_vbox = QtGui.QHBoxLayout()
-        self.mode_option_vbox.addWidget(self.time_default)
-        self.mode_option_vbox.addWidget(self.frame_default)
-
-        self.timer_option_group = QtGui.QGroupBox(u'Default Timer')
-        self.timer_option_group.setLayout(self.mode_option_vbox)
-
-        # Remember project
-        self.timeline_fps = QtGui.QCheckBox(
-            u"Set current scene FPS as default.")
-        self.autorised_custom_fps = QtGui.QCheckBox(
-            u"Autorised custom FPS.")
-
-        self.project_option_vbox = QtGui.QVBoxLayout()
-        self.project_option_vbox.addWidget(self.timeline_fps)
-        self.project_option_vbox.addWidget(self.autorised_custom_fps)
-
-        self.project_group = QtGui.QGroupBox(u'Project')
-        self.project_group.setLayout(self.project_option_vbox)
-
-        # Keys on Maya Timeline
-        self.timeline_keys = QtGui.QCheckBox(
-            u"Show keys on Maya Timeline.")
-
-        self.timeline_option_vbox = QtGui.QVBoxLayout()
-        self.timeline_option_vbox.addWidget(self.timeline_keys)
-
-        self.timeline_option_group = QtGui.QGroupBox(u'Timeline')
-        self.timeline_option_group.setLayout(self.timeline_option_vbox)
-
-        #  Button Box
-        # -----------
-        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
-                                                 QtGui.QDialogButtonBox.Cancel)
-        self.button_box.accepted.connect(self.on_accept)
-        self.button_box.rejected.connect(self.on_reject)
-
-        # Set Layouts
-
-        # General tab
-        self.vbox_general = QtGui.QVBoxLayout()
-        self.vbox_general.setAlignment(QtCore.Qt.AlignTop)
-        self.vbox_general.addWidget(self.timer_option_group)
-        self.vbox_general.addWidget(self.project_group)
-        self.vbox_general.addWidget(self.timeline_option_group)
-
-        self.tab_general = QtGui.QWidget()
-        self.tab_general.setLayout(self.vbox_general)
-
-        # Stacked the *pages*
-        self.menu_stacked = QtGui.QStackedWidget()
-        self.menu_stacked.addWidget(self.tab_general)
-
-        # Layout for widgets
-        self.main_hbox = QtGui.QHBoxLayout()
-        self.main_hbox.addWidget(self.menu_list)
-        self.main_hbox.addWidget(self.menu_stacked)
-
-        # layout for main + buttons
-        self.main_vbox = QtGui.QVBoxLayout()
-        self.main_vbox.addLayout(self.main_hbox)
-        self.main_vbox.addWidget(self.button_box)
-
-        self.setLayout(self.main_vbox)
-
-    def create_connections(self):
-        self.menu_list.currentItemChanged.connect(self._change_current_tab)
-
-    def on_accept(self):
-        self._write_pref_settings()
-        self.accept()
-        return
-
-    def on_reject(self):
-        self.reject()
-        return
-
-    # SLOTS
-    # -----
-    def _change_current_tab(self):
-        row = self.menu_list.currentRow()
-        self.menu_stacked.setCurrentIndex(row)
-        pass
-
-    # Settings
-    # --------
-
-    def _read_pref_settings(self):
-        pass
-
-    def _write_pref_settings(self):
-        pass
 
 
 class CenterList(QtGui.QListView):
@@ -471,8 +444,8 @@ class CenterList(QtGui.QListView):
 
         # Model
         self.model = QtGui.QStandardItemModel(self)
-        # self.model.setRowCount(CenterList.size())
-        # Headers
+
+        # First try to set Headers for the list
         headers = []
         headers.append(u"ID")
         headers.append(u"Time")
@@ -509,12 +482,173 @@ class CenterList(QtGui.QListView):
         self.model.clear()
 
 
-class FPSWindow(QtGui.QDialog):
-    pass
+class FramePerSecondWindow(QtGui.QDialog):
+
+    fps_preset_list = [6, 12, 15, 24, 25, 30, 48, 50, 60]
+    default = 24
+
+    def __init__(self, parent=None):
+        super(FramePerSecondWindow, self).__init__(parent)
+
+        self.current = FramePerSecondWindow.default
+
+        self.setWindowTitle(u"Frame per Second")
+        self.setFixedSize(250, 150)
+
+        self.create_controls()
+        self.create_layout()
+        self.create_connections()
+
+        self.populate()
+
+    def create_controls(self):
+        self.radio_preset = QtGui.QRadioButton(u"Presets")
+        self.radio_preset.setFixedWidth(80)
+        self.radio_preset.setStyleSheet("""
+                                        margin-left:15px;
+                                        """)
+
+        self.radio_custom = QtGui.QRadioButton(u"Custom")
+        self.radio_custom.setFixedWidth(80)
+        self.radio_custom.setStyleSheet("""
+                                        margin-left:15px;
+                                        """)
+
+        self.fps_combobox = QtGui.QComboBox()
+        self.fps_combobox.setFixedWidth(100)
+
+        self.fps_label = QtGui.QLabel(u"fps")
+        self.custom_fps_label = QtGui.QLabel(u"fps")
+
+        self.separator = QtGui.QFrame()
+        self.separator.setFrameShape(QtGui.QFrame.HLine)
+        self.separator.setFrameShadow(QtGui.QFrame.Sunken)
+
+        self.fps_custom_spinbox = QtGui.QSpinBox()
+        self.fps_custom_spinbox.setRange(6, 120)
+        self.fps_custom_spinbox.setFixedWidth(100)
+        self.fps_custom_spinbox.setButtonSymbols(
+            QtGui.QAbstractSpinBox.NoButtons)
+        self.fps_custom_spinbox.setSingleStep(2)
+
+        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
+                                                 QtGui.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.on_accepted)
+        self.button_box.rejected.connect(self.on_rejected)
+
+    def create_layout(self):
+
+        # Presets FPS layout
+        preset_layout = QtGui.QHBoxLayout()
+        preset_layout.addWidget(self.radio_preset)
+        preset_layout.addWidget(self.fps_combobox)
+        preset_layout.addWidget(self.fps_label)
+
+        # Custom FPS layout
+        custom_layout = QtGui.QHBoxLayout()
+        custom_layout.addWidget(self.radio_custom)
+        custom_layout.addWidget(self.fps_custom_spinbox)
+        custom_layout.addWidget(self.custom_fps_label)
+
+        # Main layout
+        main_layout = QtGui.QVBoxLayout()
+        main_layout.addLayout(preset_layout)
+        main_layout.addWidget(self.separator)
+        main_layout.addLayout(custom_layout)
+        main_layout.addWidget(self.button_box)
+
+        self.setLayout(main_layout)
+
+    def create_connections(self):
+        self.radio_preset.clicked.connect(self.on_preset_selected)
+        self.radio_custom.clicked.connect(self.on_custom_selected)
+
+    def populate(self):
+        """
+        If the current fps is not in the preset list, set as custom
+        else it is a preset.
+        """
+        # Set the list
+        for x in FramePerSecondWindow.fps_preset_list:
+            self.fps_combobox.addItem(str(x))
+
+        # Set to default preset and disabled custom at start
+        self.radio_preset.setChecked(True)
+        n = self.fps_combobox.findText(str(self.current))
+        self.fps_combobox.setCurrentIndex(n)
+        self.on_preset_selected()
+
+    # SLOTS
+    # -----
+
+    def on_preset_selected(self):
+        self.fps_combobox.setEnabled(True)
+        self.fps_custom_spinbox.setEnabled(False)
+
+        self.fps_label.setStyleSheet("""
+                                     color:#C8C8C8;
+                                     """)
+
+        self.radio_preset.setStyleSheet("""
+                                     color:#C8C8C8;
+                                     margin-left:15px;
+                                     """)
+
+        self.radio_custom.setStyleSheet("""
+                                     color:#707070;
+                                     margin-left:15px;
+                                     """)
+
+        self.custom_fps_label.setStyleSheet("""
+                                     color:#707070;
+                                     """)
+
+    def on_custom_selected(self):
+        self.fps_combobox.setEnabled(False)
+        self.fps_custom_spinbox.setEnabled(True)
+
+        self.fps_label.setStyleSheet("""
+                                     color:#707070;
+                                     """)
+
+        self.custom_fps_label.setStyleSheet("""
+                                     color:#C8C8C8;
+                                     """)
+
+        self.radio_preset.setStyleSheet("""
+                                     color:#707070;
+                                     margin-left:15px;
+                                     """)
+
+        self.radio_custom.setStyleSheet("""
+                                     color:#C8C8C8;
+                                     margin-left:15px;
+                                     """)
+
+    # ---
+
+    def on_accepted(self):
+
+        if self.radio_preset.isChecked():
+            value = int(self.fps_combobox.currentText())
+
+        if self.radio_custom.isChecked():
+            value = int(self.fps_custom_spinbox.value())
+
+        self.current = value
+        ui.fps.setText(str(self.current) + " fps")
+        return self.accept()
+
+    def on_rejected(self):
+        return self.reject()
 
 
 class AutoStopWindow(QtGui.QDialog):
-    pass
+
+    def __init__(self, parent=None):
+        super(AutoStopWindow, self).__init__(parent)
+
+        self.setWindowTitle(u"Auto Stop Timer")
 
 
 if __name__ == "__main__":
