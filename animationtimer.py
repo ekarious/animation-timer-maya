@@ -59,10 +59,6 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.setMaximumWidth(600)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
-        self.settings = AnimationTimerUI._load_settings_file()
-        self.settings.setFallbacksEnabled(False)
-        self._read_window_settings()
-
         self.central_widget = QtGui.QWidget()
         self.setCentralWidget(self.central_widget)
 
@@ -71,7 +67,13 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.create_layout()
         self.create_connections()
 
+        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings.setFallbacksEnabled(False)
+        self._read_window_settings()
+
         self.populate()
+
+        self.timer = Timer(self)
 
         # Special Windows
         self.fps_window = FramePerSecondWindow(self)
@@ -182,6 +184,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # File menu
         menu_file = menubar.addMenu("File")
+        menu_file.setTearOffEnabled(True)
         menu_file.addAction(action_open)
         menu_file.addSeparator()
         menu_file.addAction(action_save)
@@ -191,6 +194,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # Edit menu
         menu_edit = menubar.addMenu("Edit")
+        menu_edit.setTearOffEnabled(True)
         menu_edit.addAction(action_undo)
         menu_edit.addAction(action_redo)
         menu_edit.addSeparator()
@@ -222,9 +226,20 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.font_timer = QtGui.QFont()
         self.font_timer.setPixelSize(36)
 
-        self.timer_visual = QtGui.QLabel("00:00:00")
+        self.timer_visual = QtGui.QLabel("00:00:000")
         self.timer_visual.setFont(self.font_timer)
-        self.timer_visual.setFixedHeight(50)
+        self.timer_visual.setFixedHeight(60)
+        self.timer_visual.setStyleSheet("""
+                                             margin-top:-10px;
+                                             """)
+
+        self.timer_description = QtGui.QLabel(
+            "min : sec : millisec")
+        self.timer_description.setStyleSheet("""
+                                             margin-top:15px;
+                                             color:#757575;
+                                             font-style:italic;
+                                             """)
 
         # Center Area
         self.central_list = CenterList()
@@ -282,8 +297,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
         timer_bar_layout.setColumnStretch(0, 1)
         timer_bar_layout.setColumnStretch(2, 1)
         timer_bar_layout.addWidget(self.timer_visual, 0, 1, 0, 1)
-        timer_bar_layout.addWidget(self.frames, 0, 2, 1, 1,
+        timer_bar_layout.addWidget(self.frames, 0, 2, 2, 1,
                                    QtCore.Qt.AlignRight)
+        timer_bar_layout.addWidget(self.timer_description, 1, 1, 1, 1,
+                                   QtCore.Qt.AlignCenter)
 
         # Set the Main Layout
         main_layout = QtGui.QVBoxLayout()
@@ -303,7 +320,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.reset_btn.clicked.connect(self.on_reset_btn_clicked)
 
     def populate(self):
-        pass
+        """
+        Populate the Program at first launch
+        """
+        if self.action_always_on_top.isChecked():
+            self.on_window_always_on_top_triggered()
 
     def open_fps_window(self):
         """
@@ -350,9 +371,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
     def on_start_btn_clicked(self):
         print("Start btn clicked.")
+        self.timer.start()
 
     def on_stop_btn_clicked(self):
         print("Stop btn clicked.")
+        self.timer.stop()
 
     def on_reset_btn_clicked(self):
         print("Reset btn clicked.")
@@ -399,10 +422,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # Read data
         if settings.value("pos") is None:
-            # No pos data yet
             self.center_window()
         else:
             self.move(settings.value("pos", self.pos()))
+
+        self.action_always_on_top.setChecked(
+            _str_to_bool(settings.value("always_on_top", True)))
 
         settings.endGroup()
 
@@ -416,6 +441,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # Write data
         settings.setValue("pos", self.pos())
+        settings.setValue(
+            "always_on_top",
+            self.action_always_on_top.isChecked())
 
         settings.endGroup()
 
@@ -433,6 +461,62 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
 class AnimationTimer(object):
     pass
+
+
+class Timer(QtCore.QTimer):
+    """
+    This can be quite difficult to understand.
+    QTimer is here for display purpose and better user interaction.
+    QElapsedTimer is here for calculation of elapsed time for the program.
+    """
+    def __init__(self, parent):
+        super(Timer, self).__init__(parent)
+
+        self.setSingleShot(False)
+        self.qelapsedtimer = QtCore.QElapsedTimer()
+
+        self.timeout.connect(self.on_timer_changed)
+
+    def isTimerActive(self):
+        super(Timer, self).isActive()
+
+    def isTimerValid(self):
+        return self.qelapsedtimer.isValid()
+
+    def start(self, msec=1):
+        """
+        Start timers
+        """
+        super(Timer, self).start(msec)
+        self.qelapsedtimer.start()
+
+    def stop(self):
+        """
+        Stop QTimer
+        Invalidate QElapsedTimer (security)
+        """
+        super(Timer, self).stop()
+        self.qelapsedtimer.invalidate()
+
+    def elasped(self):
+        """
+        Get the elasped time between the start.
+        """
+        if self.isTimerValid():
+            return self.qelapsedtimer.elasped()
+
+    def hasExpired(self, timeout):
+        """
+        timeout need to be an qint64 type of int.
+        """
+        self.qelapsedtimer.hasExpired(timeout)
+
+    # SLOTS
+    # -----
+
+    def on_timer_changed(self):
+        """Function triggered every time the timer timeout"""
+        ui.timer_visual.setText(self.elapsed())
 
 
 class CenterList(QtGui.QListView):
@@ -492,7 +576,7 @@ class FramePerSecondWindow(QtGui.QDialog):
 
         self.current = FramePerSecondWindow.default
 
-        self.setWindowTitle(u"Frame per Second")
+        self.setWindowTitle(u"Chose FPS")
         self.setFixedSize(250, 150)
 
         self.create_controls()
@@ -628,7 +712,6 @@ class FramePerSecondWindow(QtGui.QDialog):
     # ---
 
     def on_accepted(self):
-
         if self.radio_preset.isChecked():
             value = int(self.fps_combobox.currentText())
 
@@ -648,7 +731,206 @@ class AutoStopWindow(QtGui.QDialog):
     def __init__(self, parent=None):
         super(AutoStopWindow, self).__init__(parent)
 
+        self.current = None
+
         self.setWindowTitle(u"Auto Stop Timer")
+        self.setFixedSize(250, 200)
+
+        self.create_controls()
+        self.create_layout()
+        self.create_connections()
+
+        self.populate()
+
+    def create_controls(self):
+        self.radio_none = QtGui.QRadioButton(u"Disabled")
+        self.radio_none.setFixedWidth(120)
+        self.radio_none.setStyleSheet("""
+                                      margin-left:28px;
+                                      """)
+
+        self.radio_time = QtGui.QRadioButton(u"Time")
+        self.radio_time.setFixedWidth(80)
+        self.radio_time.setStyleSheet("""
+                                      margin-left:15px;
+                                      """)
+
+        self.radio_frames = QtGui.QRadioButton(u"Frame")
+        self.radio_frames.setFixedWidth(80)
+        self.radio_frames.setStyleSheet("""
+                                        margin-left:15px;
+                                        """)
+
+        self.separator = QtGui.QFrame()
+        self.separator.setFrameShape(QtGui.QFrame.HLine)
+        self.separator.setFrameShadow(QtGui.QFrame.Sunken)
+
+        self.separator2 = QtGui.QFrame()
+        self.separator2.setFrameShape(QtGui.QFrame.HLine)
+        self.separator2.setFrameShadow(QtGui.QFrame.Sunken)
+
+        self.time_edit = QtGui.QTimeEdit()
+        self.time_edit.setFixedWidth(100)
+        self.time_edit.setMinimumTime(QtCore.QTime(0, 0, 1, 0))
+        self.time_edit.setMaximumTime(QtCore.QTime(0, 60, 00, 000))
+        self.time_edit.setDisplayFormat("mm:ss:zzz")
+
+        self.frames_spinbox = QtGui.QSpinBox()
+        self.frames_spinbox.setMinimum(1)
+        self.frames_spinbox.setFixedWidth(100)
+        self.frames_spinbox.setSingleStep(1)
+        self.frames_spinbox.setMaximum(99999)
+
+        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
+                                                 QtGui.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.on_accepted)
+        self.button_box.rejected.connect(self.on_rejected)
+
+    def create_layout(self):
+
+        # Time layout
+        preset_layout = QtGui.QHBoxLayout()
+        preset_layout.addWidget(self.radio_time)
+        preset_layout.addWidget(self.time_edit)
+
+        # Frame layout
+        custom_layout = QtGui.QHBoxLayout()
+        custom_layout.addWidget(self.radio_frames)
+        custom_layout.addWidget(self.frames_spinbox)
+
+        # Main layout
+        main_layout = QtGui.QVBoxLayout()
+        main_layout.addWidget(self.radio_none)
+        main_layout.addWidget(self.separator2)
+        main_layout.addLayout(preset_layout)
+        main_layout.addWidget(self.separator)
+        main_layout.addLayout(custom_layout)
+        main_layout.addWidget(self.button_box)
+
+        self.setLayout(main_layout)
+
+    def create_connections(self):
+        self.radio_none.clicked.connect(self.on_disabled_selected)
+        self.radio_time.clicked.connect(self.on_time_selected)
+        self.radio_frames.clicked.connect(self.on_frame_selected)
+
+    def populate(self):
+        """Set to disabled by default"""
+        self.radio_none.setChecked(True)
+        self.on_disabled_selected()
+
+    # SLOTS
+    # -----
+
+    def on_disabled_selected(self):
+        self.time_edit.setEnabled(False)
+        self.frames_spinbox.setEnabled(False)
+
+        self.radio_none.setStyleSheet("""
+                                      color:#C8C8C8;
+                                      margin-left:28px;
+                                      """)
+
+        self.radio_frames.setStyleSheet("""
+                                        color:#707070;
+                                        margin-left:15px;
+                                        """)
+
+        self.radio_time.setStyleSheet("""
+                                        color:#707070;
+                                        margin-left:15px;
+                                        """)
+
+        self.time_edit.setStyleSheet("""
+                                     color:#707070;
+                                     """)
+
+        self.frames_spinbox.setStyleSheet("""
+                                     color:#707070;
+                                     """)
+
+    def on_time_selected(self):
+        self.time_edit.setEnabled(True)
+        self.frames_spinbox.setEnabled(False)
+
+        self.radio_none.setStyleSheet("""
+                                      color:#707070;
+                                      margin-left:28px;
+                                      """)
+
+        self.radio_frames.setStyleSheet("""
+                                        color:#707070;
+                                        margin-left:15px;
+                                        """)
+
+        self.radio_time.setStyleSheet("""
+                                        color:#C8C8C8;
+                                        margin-left:15px;
+                                        """)
+
+        self.time_edit.setStyleSheet("""
+                                     color:#C8C8C8;
+                                     """)
+
+        self.frames_spinbox.setStyleSheet("""
+                                     color:#707070;
+                                     """)
+
+    def on_frame_selected(self):
+        self.time_edit.setEnabled(False)
+        self.frames_spinbox.setEnabled(True)
+
+        self.radio_none.setStyleSheet("""
+                                      color:#707070;
+                                      margin-left:28px;
+                                      """)
+
+        self.radio_frames.setStyleSheet("""
+                                        color:#C8C8C8;
+                                        margin-left:15px;
+                                        """)
+
+        self.radio_time.setStyleSheet("""
+                                        color:#707070;
+                                        margin-left:15px;
+                                        """)
+
+        self.time_edit.setStyleSheet("""
+                                     color:#707070;
+                                     """)
+
+        self.frames_spinbox.setStyleSheet("""
+                                     color:#C8C8C8;
+                                     """)
+
+    # Others
+
+    def on_accepted(self):
+        """
+        self.current can have 3 types of value:
+        - None
+        - Time : QTime object
+        - Frames : integer
+        """
+        if self.radio_none.isChecked():
+            self.current = None
+            ui.timing_option_btn.setText("No Auto Stop")
+
+        if self.radio_time.isChecked():
+            self.current = self.time_edit.time().toString("mm:ss:zzz")
+            ui.timing_option_btn.setText(
+                "Auto Stop at " + self.current)
+
+        if self.radio_frames.isChecked():
+            self.current = int(self.frames_spinbox.value())
+            frame_text = ' frame' if str(self.current) == '1' else ' frames'
+            ui.timing_option_btn.setText(
+                "Auto Stop at " + str(self.current) + frame_text)
+
+        return self.accept()
+
+    def on_rejected(self):
+        return self.reject()
 
 
 if __name__ == "__main__":
