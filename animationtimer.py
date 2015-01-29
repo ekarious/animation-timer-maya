@@ -558,6 +558,13 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Save window attributes settings on move
         self._write_window_settings()
 
+    def keyPressEvent(self, event):
+        """
+        This just accepts all keystrokes and does nothing with them
+        so that they don't get propagated on to Maya's hotkeys
+        """
+        pass
+
 
 class AnimationTimer(object):
     """
@@ -788,6 +795,9 @@ class CenterList(QtGui.QTableView):
         self.setShowGrid(False)
         self.setGridStyle(QtCore.Qt.DashLine)
 
+        # Handle shortcuts
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
+
         # Model
         self.model = QtGui.QStandardItemModel(self)
 
@@ -857,6 +867,22 @@ class CenterList(QtGui.QTableView):
             l.append(d)
 
         return l
+
+    # Events
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Space:
+            ui.on_start_btn_clicked()
+            event.accept()
+        elif event.key() == QtCore.Qt.Key_Escape:
+            ui.on_stop_btn_clicked()
+            event.accept()
+        elif event.key() == QtCore.Qt.Key_Backspace:
+            ui.on_reset_btn_clicked()
+            event.accept()
+        else:
+            # make sure usual keys get dealt with
+            super(CenterList, self).keyPressEvent(event)
 
 
 class FramePerSecondWindow(QtGui.QDialog):
