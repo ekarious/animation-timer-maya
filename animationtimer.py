@@ -868,7 +868,8 @@ class CenterList(QtGui.QTableView):
 
         return l
 
-    # Events
+    # EVENTS
+    # ------
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
@@ -878,7 +879,11 @@ class CenterList(QtGui.QTableView):
             ui.on_stop_btn_clicked()
             event.accept()
         elif event.key() == QtCore.Qt.Key_Backspace:
-            ui.on_reset_btn_clicked()
+            if len(self.selectionModel().selectedRows()) > 0:
+                self.remove()
+            else:
+                ui.on_reset_btn_clicked()
+
             event.accept()
         else:
             # make sure usual keys get dealt with
