@@ -900,7 +900,7 @@ class FramePerSecondWindow(QtGui.QDialog):
 
         self.current = FramePerSecondWindow.default
 
-        self.setWindowTitle(u"Chose FPS")
+        self.setWindowTitle(u"Choose FPS")
         self.setFixedSize(250, 150)
 
         self.create_controls()
