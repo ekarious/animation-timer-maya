@@ -11,10 +11,13 @@ import maya.OpenMayaUI as omui
 import maya.OpenMaya as om
 import maya.cmds as cmds
 
+from math import ceil
+import json
+
 # Constants
 TITLE = u"Animation Timer"
 AUTHOR = u"Yann Schmidt"
-VERSION = u"0.1d"
+VERSION = u"1.0"
 USER_SCRIPT_DIR = cmds.internalVar(usd=True)
 USER_PREFS_DIR = cmds.internalVar(upd=True)
 
@@ -49,6 +52,9 @@ def error_display(message):
 
 
 class AnimationTimerUI(QtGui.QMainWindow):
+    """
+    Management of the main interface for Animation Timer.
+    """
 
     def __init__(self, parent=maya_main_window()):
         super(AnimationTimerUI, self).__init__(parent)
@@ -74,6 +80,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.populate()
 
         self.timer = Timer(self)
+        self.file = None
 
         # Special Windows
         self.fps_window = FramePerSecondWindow(self)
@@ -91,21 +98,22 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # Action : Open Timing
         action_open = QtGui.QAction(u"Open Timing", self)
-        action_open.setStatusTip(u"Open existing Timing")
+        action_open.setStatusTip(u"Open existing Timing (.timing | .json)")
         action_open.setAutoRepeat(False)
-        action_open.setDisabled(True)
+        # action_open.setDisabled(True)
+        action_open.triggered.connect(self.on_open_timing_triggered)
 
         # Action : Save
         action_save = QtGui.QAction(u"Save", self)
         action_save.setStatusTip(u"Save Timing")
         action_save.setAutoRepeat(False)
-        action_save.setDisabled(True)
+        action_save.triggered.connect(self.on_save_timing_triggered)
 
         # Action : Save As ...
         action_save_as = QtGui.QAction(u"Save As ...", self)
         action_save_as.setStatusTip(u"Save Timing as ...")
         action_save_as.setAutoRepeat(False)
-        action_save_as.setDisabled(True)
+        action_save_as.triggered.connect(self.on_save_as_timing_triggered)
 
         # Action : Recent Timing
 
@@ -116,40 +124,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         # -----
 
-        # Action : Undo
-        action_undo = QtGui.QAction(u"Undo", self)
-        action_undo.setStatusTip(u"Undo the last action made")
-        action_undo.setDisabled(True)
-
-        # Action : Redo
-        action_redo = QtGui.QAction(u"Redo", self)
-        action_redo.setStatusTip(u"Redo the last undo")
-        action_redo.setDisabled(True)
-
-        # Action : Copy
-        action_copy = QtGui.QAction(u"Copy", self)
-        action_copy.setStatusTip("Copy selected timing raw(s)")
-        action_copy.setDisabled(True)
-
-        # Action : Cut
-        action_cut = QtGui.QAction(u"Cut", self)
-        action_cut.setStatusTip("Cut selected timing raw(s)")
-        action_cut.setDisabled(True)
-
-        # Action : Paste
-        action_paste = QtGui.QAction(u"Paste", self)
-        action_paste.setStatusTip("Paste")
-        action_paste.setDisabled(True)
-
-        # Action : Select All
-        action_select_all = QtGui.QAction(u"Select All", self)
-        action_select_all.setStatusTip(u"Select all timing raws")
-        action_select_all.setDisabled(True)
-
         # Action : Delete
         action_delete = QtGui.QAction(u"Delete", self)
         action_delete.setStatusTip(u"Delete selected raw(s)")
-        action_delete.setDisabled(True)
+        action_delete.triggered.connect(self.on_action_delete_clicked)
 
         # -----
 
@@ -195,19 +173,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Edit menu
         menu_edit = menubar.addMenu("Edit")
         menu_edit.setTearOffEnabled(True)
-        menu_edit.addAction(action_undo)
-        menu_edit.addAction(action_redo)
-        menu_edit.addSeparator()
-        menu_edit.addAction(action_copy)
-        menu_edit.addAction(action_cut)
-        menu_edit.addAction(action_paste)
-        menu_edit.addSeparator()
-        menu_edit.addAction(action_select_all)
         menu_edit.addAction(action_delete)
 
         # Maya menu
-        menu_maya = menubar.addMenu("Maya")
-        menu_maya.addAction(self.action_show_timeline)
+        # menu_maya = menubar.addMenu("Maya")
+        # menu_maya.addAction(self.action_show_timeline)
 
         # Window menu
         menu_window = menubar.addMenu("Window")
@@ -241,6 +211,14 @@ class AnimationTimerUI(QtGui.QMainWindow):
                                              font-style:italic;
                                              """)
 
+        self.frames_description = QtGui.QLabel(
+            "frames")
+        self.frames_description.setStyleSheet("""
+                                             margin-top:15px;
+                                             color:#757575;
+                                             font-style:italic;
+                                             """)
+
         # Center Area
         self.central_list = CenterList()
 
@@ -268,7 +246,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.timing_option_btn.setFlat(True)
 
         # Labels
-        self.frames = QtGui.QLabel("0")
+        self.frames = QtGui.QLabel()
+        self.frames.setNum(0)
 
         # ComboBox
         self.fps = QtGui.QPushButton("24 fps")
@@ -301,6 +280,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
                                    QtCore.Qt.AlignRight)
         timer_bar_layout.addWidget(self.timer_description, 1, 1, 1, 1,
                                    QtCore.Qt.AlignCenter)
+        timer_bar_layout.addWidget(self.frames_description, 1, 2, 1, 1,
+                                   QtCore.Qt.AlignRight)
 
         # Set the Main Layout
         main_layout = QtGui.QVBoxLayout()
@@ -323,6 +304,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         """
         Populate the Program at first launch
         """
+        # Set default always on top option.
         if self.action_always_on_top.isChecked():
             self.on_window_always_on_top_triggered()
 
@@ -370,15 +352,42 @@ class AnimationTimerUI(QtGui.QMainWindow):
     # -----
 
     def on_start_btn_clicked(self):
-        print("Start btn clicked.")
-        self.timer.start()
+        if self.timer.isActive():
+            self.capture_data()
+            self.central_list.horizontalHeader().show()
+        else:
+            self.central_list.model.clear()
+            self.central_list.set_headers()
+            # Get the update rate for the time based on the current fps.
+            # Great for saving ressources.
+            update_in_ms = AnimationTimer.calculate_frame_length(
+                self.fps_window.current)
+            self.timer.start(update_in_ms)
+
+            self.start_btn.setText(u"Capture Frame")
+            self.start_btn.setFixedWidth(150)
 
     def on_stop_btn_clicked(self):
-        print("Stop btn clicked.")
         self.timer.stop()
 
+        self.start_btn.setText(u"Start")
+        self.start_btn.setFixedWidth(60)
+
     def on_reset_btn_clicked(self):
-        print("Reset btn clicked.")
+        if self.timer.isActive():
+            self.timer.stop()
+
+        # Reset timer and frames
+        self.timer_visual.setText("00:00:000")
+        self.timer.time = QtCore.QTime()
+        self.frames.setText("0")
+
+        # Reset Start btn
+        self.start_btn.setText(u"Start")
+        self.start_btn.setFixedWidth(60)
+
+        # Empty the table
+        self.central_list.clear()
 
     def on_maya_show_timeline_triggered(self):
         print("Show on timeline checkbox triggered.")
@@ -393,6 +402,97 @@ class AnimationTimerUI(QtGui.QMainWindow):
             flags &= ~QtCore.Qt.WindowStaysOnTopHint
             self.setWindowFlags(flags)
             self.show()
+
+    def on_open_timing_triggered(self):
+        """
+        Open a .timing or .json file and load its contents.
+        """
+        # Get the selected file
+        filename, _ = QtGui.QFileDialog.getOpenFileName(
+            self,
+            'Open Timing',
+            QtCore.QDir.homePath(),
+            'Timing / Json Files (*.timing *.json)',
+            '',
+            QtGui.QFileDialog.DontUseNativeDialog)
+
+        if not filename:
+            return
+
+        # Read the file, validate and import data
+        data = AnimationTimer.read_timing_from_file(filename)
+        if data is None:
+            return
+
+        AnimationTimer.import_data(data)
+
+        # Set new file as the current file
+        self.file = filename
+
+    def on_save_timing_triggered(self):
+        """
+        Save a timing into a file.
+        If file exists, do not ask for location
+        """
+        # If file currently not exists
+        if self.file is None:
+            dialog = AnimationTimer._open_save_window(self)
+
+            if dialog.exec_():
+                filename = dialog.selectedFiles()
+            else:
+                filename = None
+
+            if not filename:
+                return
+            else:
+                self.file = filename
+
+        # Get all the data from the table + some magic
+        data = self.central_list.get_dict()
+
+        # Then save it !
+        AnimationTimer.write_timing_to_file(self.file, data)
+
+    def on_save_as_timing_triggered(self):
+        """
+        Save a timing into a file.
+        Always ask for location before saving
+        """
+        dialog = AnimationTimer._open_save_window(self)
+
+        if dialog.exec_():
+            filename = dialog.selectedFiles()
+        else:
+            filename = None
+
+        if not filename:
+            return
+
+        # Get all the data from the table + some magic
+        data = self.central_list.get_dict()
+
+        # Then save it !
+        AnimationTimer.write_timing_to_file(filename, data)
+
+        # Set newly save filename as current file
+        self.file = filename
+
+    def on_action_delete_clicked(self):
+        """
+        Delete current selected rows
+        """
+        self.central_list.remove()
+
+    def capture_data(self):
+        """
+        Cature the current data from the timer and frames widget
+        and save them as an instant 't' (snapshot).
+        """
+        timer = self.timer.get("mm:ss:zzz")
+        frame = self.frames.text()
+
+        self.central_list.add(timer, frame)
 
     # Others
 
@@ -460,7 +560,101 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
 
 class AnimationTimer(object):
-    pass
+    """
+    Class for specific behevior operation.
+    """
+    def __init__(self):
+        pass
+
+    @classmethod
+    def calculate_frames(cls, ms, fps):
+        """
+        Calculate the current frame based on the elasped time and current
+        fps.
+        ms : int millisec
+        fps: int value
+        @return float frames
+        """
+        frames = fps * ms / 1000
+        return frames
+
+    @classmethod
+    def calculate_frame_length(cls, fps):
+        """
+        Calculate the length in millisec for 1 frame.
+        - fps : int.
+        @return
+        """
+        frame_length = ceil(1000 / fps)
+        return int(frame_length)
+
+    @classmethod
+    def write_timing_to_file(cls, filename, data):
+        """
+        Write a timing file with json.
+        - filename : file to write into
+        - data : dict to write in the file
+        """
+        # Add an item to the list at the top.
+        d = {}
+        d['plugin_name'] = TITLE
+        d['fps'] = ui.fps_window.current
+
+        data.insert(0, d)
+
+        if isinstance(filename, list):
+            filename = filename[0]
+
+        # Save the data to a json file.
+        if filename:
+            with open(filename, "w") as f:
+                json.dump(data, f, indent=4, separators=(',', ': '))
+
+    @classmethod
+    def read_timing_from_file(cls, filename):
+        """
+        Open a file, read the content and show it into the  table
+        - filename
+        """
+        with open(filename, "r") as f:
+            data = json.load(f)
+
+        try:
+            if data[0].get('plugin_name') == TITLE and \
+               data[0].get('fps'):
+                return data
+        except KeyError:
+            return None
+
+    @classmethod
+    def import_data(cls, data):
+        """
+        Import data to software.
+        """
+        fps = data[0].get('fps')
+
+        for x in range(1, len(data)):
+            time = data[x].get('time')
+            frame = data[x].get('frame')
+            ui.central_list.add(time, frame)
+
+        # Set fps
+        ui.fps_window.current = int(fps)
+        ui.fps.setText(str(fps) + " fps")
+
+    @classmethod
+    def _open_save_window(cls, parent):
+        dialog = QtGui.QFileDialog(parent)
+        dialog.setAcceptMode(QtGui.QFileDialog.AcceptSave)
+        dialog.setDefaultSuffix('timing')
+        dialog.setDirectory(QtCore.QDir.homePath())
+        dialog.setFileMode(QtGui.QFileDialog.AnyFile)
+        dialog.setNameFilter(
+            'Timing File (*.timing);;Json File (*.json)')
+        dialog.setWindowTitle("Save Timing as ...")
+        dialog.setOption(QtGui.QFileDialog.DontUseNativeDialog)
+
+        return dialog
 
 
 class Timer(QtCore.QTimer):
@@ -471,6 +665,9 @@ class Timer(QtCore.QTimer):
     """
     def __init__(self, parent):
         super(Timer, self).__init__(parent)
+
+        self.is_stop_needed = False
+        self.time = QtCore.QTime()
 
         self.setSingleShot(False)
         self.qelapsedtimer = QtCore.QElapsedTimer()
@@ -497,13 +694,14 @@ class Timer(QtCore.QTimer):
         """
         super(Timer, self).stop()
         self.qelapsedtimer.invalidate()
+        self.is_stop_needed = False
 
-    def elasped(self):
+    def elapsed(self):
         """
-        Get the elasped time between the start.
+        Get the elapsed time between the start.
         """
         if self.isTimerValid():
-            return self.qelapsedtimer.elasped()
+            return self.qelapsedtimer.elapsed()
 
     def hasExpired(self, timeout):
         """
@@ -511,51 +709,115 @@ class Timer(QtCore.QTimer):
         """
         self.qelapsedtimer.hasExpired(timeout)
 
+    def auto_stop_at_time(self):
+        """
+        Auto Stop the timer at a choosen time if needed.
+        """
+        # Get current auto stop state.
+        auto_stop = ui.auto_stop_window.current
+
+        if isinstance(auto_stop, QtCore.QTime):
+            if self.time >= auto_stop:
+                self.is_stop_needed = True
+        else:
+            pass
+
+    def auto_stop_at_frame(self):
+        """
+        Auto Stop the timer at a choosen frame if needed.
+        """
+        # Get current auto stop state.
+        auto_stop = ui.auto_stop_window.current
+
+        if isinstance(auto_stop, int):
+            if int(ui.frames.text()) >= auto_stop:
+                self.is_stop_needed = True
+        else:
+            pass
+
+    def get(self, format):
+        """
+        Return the timer with the specified format
+        """
+        return self.time.toString(format)
+
     # SLOTS
     # -----
 
     def on_timer_changed(self):
-        """Function triggered every time the timer timeout"""
-        ui.timer_visual.setText(self.elapsed())
+        """Function triggered every time the timer's timeout"""
+        # Check for AutoStop
+        if ui.auto_stop_window.current is not None:
+            self.auto_stop_at_time()
+            self.auto_stop_at_frame()
+
+        # Set the default values.
+        ms = self.elapsed()
+
+        frames_amount = AnimationTimer.calculate_frames(
+            ms,
+            ui.fps_window.current)
+
+        # Check if auto stop needed.
+        if self.is_stop_needed is True:
+            self.stop()
+
+        # Get the different parts of the time and populate the QTime object.
+        self.time = QtCore.QTime()  # Reset the timer before setting the time.
+        self.time.setHMS(0,
+                         self.time.addMSecs(ms).minute(),
+                         self.time.addMSecs(ms).second(),
+                         self.time.addMSecs(ms).msec())
+
+        # Update the Display with the QTime object into a specific format.
+        ui.timer_visual.setText(self.time.toString("mm:ss:zzz"))
+
+        # Update the frames count.
+        ui.frames.setNum(int(frames_amount))
 
 
-class CenterList(QtGui.QListView):
+class CenterList(QtGui.QTableView):
 
     def __init__(self, parent=None):
         super(CenterList, self).__init__(parent)
 
         self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.horizontalHeader().setResizeMode(
+            QtGui.QHeaderView.Stretch)
+        self.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.setShowGrid(False)
+        self.setGridStyle(QtCore.Qt.DashLine)
 
         # Model
         self.model = QtGui.QStandardItemModel(self)
 
-        # First try to set Headers for the list
-        headers = []
-        headers.append(u"ID")
-        headers.append(u"Time")
-        headers.append(u"Frames")
-
-        self.model.setHorizontalHeaderLabels(headers)
-        self.model.setColumnCount(3)
-
         self.setModel(self.model)
 
-    def add(self, item):
+    def add(self, time, frame):
         """
-        Add a item to the list
+        Add a row to the table
 
         Item contents:
-        - ID
         - Time
         - Frame Number
         """
-        pass
+        self.set_headers()
 
-    def remove(self, items):
+        row0 = QtGui.QStandardItem(str(time))
+        row0.setTextAlignment(QtCore.Qt.AlignCenter)
+
+        row1 = QtGui.QStandardItem(str(frame))
+        row1.setTextAlignment(QtCore.Qt.AlignCenter)
+
+        l = [row0, row1]
+
+        self.model.appendRow(l)
+
+    def remove(self):
         """
         Remove selected items.
         """
-        i = self.selectedIndexes()
+        i = self.selectionModel().selectedRows()
         for x in i:
             self.model.removeRow(x.row())
 
@@ -564,6 +826,37 @@ class CenterList(QtGui.QListView):
         Clear the whole list.
         """
         self.model.clear()
+        self.horizontalHeader().hide()
+
+    def set_headers(self):
+        """
+        Set the headers for the list.
+        """
+        headers = []
+        headers.append(u"Time")
+        headers.append(u"Frames")
+
+        self.model.setHorizontalHeaderLabels(headers)
+
+    def get_dict(self):
+        """
+        Create a dict of items ()
+        """
+        row_count = self.model.rowCount()
+
+        l = []
+
+        # For each line...
+        for row in range(0, row_count):
+
+            # Get data from the columns...
+            d = {}
+            d["time"] = self.model.item(row, 0).text()
+            d["frame"] = self.model.item(row, 1).text()
+
+            l.append(d)
+
+        return l
 
 
 class FramePerSecondWindow(QtGui.QDialog):
@@ -719,6 +1012,7 @@ class FramePerSecondWindow(QtGui.QDialog):
             value = int(self.fps_custom_spinbox.value())
 
         self.current = value
+
         ui.fps.setText(str(self.current) + " fps")
         return self.accept()
 
@@ -917,9 +1211,9 @@ class AutoStopWindow(QtGui.QDialog):
             ui.timing_option_btn.setText("No Auto Stop")
 
         if self.radio_time.isChecked():
-            self.current = self.time_edit.time().toString("mm:ss:zzz")
+            self.current = self.time_edit.time()
             ui.timing_option_btn.setText(
-                "Auto Stop at " + self.current)
+                "Auto Stop at " + self.time_edit.time().toString("mm:ss:zzz"))
 
         if self.radio_frames.isChecked():
             self.current = int(self.frames_spinbox.value())
