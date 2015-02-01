@@ -20,6 +20,7 @@ AUTHOR = u"Yann Schmidt"
 VERSION = u"1.0"
 USER_SCRIPT_DIR = cmds.internalVar(usd=True)
 USER_PREFS_DIR = cmds.internalVar(upd=True)
+DOCS_URL = 'http://yannschmidt.com/scripts/maya/animation-timer/docs/index'
 
 
 # Pointer to maya main window
@@ -116,6 +117,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_save_as.triggered.connect(self.on_save_as_timing_triggered)
 
         # Action : Recent Timing
+        # TODO
 
         # Action : Exit Program
         action_exit = QtGui.QAction(u"Exit", self)
@@ -135,6 +137,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.action_show_timeline = QtGui.QAction(u"Show on Timeline", self)
         self.action_show_timeline.setStatusTip(u"Show on Maya Timeline")
         self.action_show_timeline.setCheckable(True)
+        self.action_show_timeline.setDisabled(True)
 
         # -----
 
@@ -150,6 +153,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         userguideAction = QtGui.QAction(u"Documentation", self)
         userguideAction.setStatusTip(u"Open the Documentation"
                                      " inside a web browser")
+        userguideAction.triggered.connect(self.on_open_documentation_triggered)
 
         # Action : About Window
         action_about = QtGui.QAction(u"About", self)
@@ -402,6 +406,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
             flags &= ~QtCore.Qt.WindowStaysOnTopHint
             self.setWindowFlags(flags)
             self.show()
+
+    def on_open_documentation_triggered(self):
+        url = QtCore.QUrl(DOCS_URL)
+        return QtGui.QDesktopServices.openUrl(url)
 
     def on_open_timing_triggered(self):
         """
