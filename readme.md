@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Ever had a timing in your head for your next animation ? 
+Ever had a timing in your head for your next animation ?
 Or do you want to change a part of your animation with a timing you have in your head ?
 
 If so, this program can help you.
@@ -12,21 +12,21 @@ To kick start your blocking process or test out if the timing you think about is
 ## Using process
 
 When you think about your animation, everytime you think about something (like a key pose for exemple),
-you can, by interacting with the app, save the time and frame that pose might need to happened.
+you can save the time and frame that pose might need to happened.
 
 Exemple :
 
 Let's say you want to animate a ball.
 
 When you start the timer, think as your animation starting in your head.
-Then click "capture !" every time the ball should its the ground.
+Then click "Capture Frame" every time the ball should hit the ground.
 
 The program will keep those times and frames in the main window for your use.
 (If you want to really keep it for later, do not forget to save them to a file !)
 
 Now, you have a rough information where to put your frames to start your animation !
 
-For a video tutorial, go : http://yannschmidt.com/scripts/maya/animation-timer/docs/quick-start-guide/
+For a video tutorial, go : `http://yannschmidt.com/scripts/maya/animation-timer/docs/quick-start-guide/`
 
 
 ## Installation
@@ -43,10 +43,11 @@ The installation is really simple.
 To make the plugin works, copy it into a location where you will keep it safe.
 I recommand the script direcory of Maya.
 
-Do not forget the change <username> and <version> by the version you are using.
+Do not forget the change `<username>` and `<version>` by the version you are using.
 
-Windows : \Users\<username>\Documents\maya\<version>\scripts
-OS X : /Users/<username>/Library/Preferences/Autodesk/maya/<version>/scripts
+    Windows : \Users\<username>\Documents\maya\<version>\scripts
+    OS X : /Users/<username>/Library/Preferences/Autodesk/maya/<version>/scripts
+
 Then follow the steps below:
 
 Open Maya.
