@@ -127,8 +127,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # -----
 
         # Action : Delete
-        action_delete = QtGui.QAction(u"Delete", self)
-        action_delete.setStatusTip(u"Delete selected raw(s)")
+        action_delete = QtGui.QAction(u"Delete row(s)", self)
+        action_delete.setStatusTip(u"Delete selected row(s)")
         action_delete.triggered.connect(self.on_action_delete_clicked)
 
         # -----
@@ -783,6 +783,11 @@ class Timer(QtCore.QTimer):
                          self.time.addMSecs(ms).minute(),
                          self.time.addMSecs(ms).second(),
                          self.time.addMSecs(ms).msec())
+
+        # Security
+        # Stop the timer is QTime is about to be an hour long.
+        if self.time > QtCore.QTime(0, 59, 59, 999):
+            self.stop()
 
         # Update the Display with the QTime object into a specific format.
         ui.timer_visual.setText(self.time.toString("mm:ss:zzz"))
