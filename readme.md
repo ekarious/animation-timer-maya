@@ -1,11 +1,40 @@
 # Animation Timer
 
+## Purpose
+
+Ever had a timing in your head for your next animation ? 
+Or do you want to change a part of your animation with a timing you have in your head ?
+
+If so, this program can help you.
+To kick start your blocking process or test out if the timing you think about is good or bad.
+
+
+## Using process
+
+When you think about your animation, everytime you think about something (like a key pose for exemple),
+you can, by interacting with the app, save the time and frame that pose might need to happened.
+
+Exemple :
+
+Let's say you want to animate a ball.
+
+When you start the timer, think as your animation starting in your head.
+Then click "capture !" every time the ball should its the ground.
+
+The program will keep those times and frames in the main window for your use.
+(If you want to really keep it for later, do not forget to save them to a file !)
+
+Now, you have a rough information where to put your frames to start your animation !
+
+For a video tutorial, go : http://yannschmidt.com/scripts/maya/animation-timer/docs/quick-start-guide/
+
+
 ## Installation
 
-It was tested with Maya 2014 on OSX. I cannot works easily on older Maya version because it needs a version of PySide and Qt to be installed. Since Maya 2014, those are packed with it when you installed the software.
+It was tested with Maya 2014 on OSX and Windows. I cannot works easily on older Maya version because it needs a version of PySide and Qt to be installed. Since Maya 2014, those are packed with it when you installed the software.
 
 It sould be working on Maya 2015 but i didn't tested it.
-If you want to test on different systems like Window or Linux, go head ! But please, report to me so i can update the documentation and track bugs.
+If you want to test it on Linux, go head ! But please, report to me so i can update the documentation and track bugs.
 
 ---
 
@@ -27,7 +56,8 @@ Create a shelf button for a better way to open it in the future.
 Clic the shelf button to open the plugin !
 The installation process may change in the future.
 
-## Use
+
+## Controls
 
 Just launch it.
 
@@ -47,6 +77,7 @@ I added 3 shortcuts keyboard keys to use those actions
 Tip : The "24 fps" and the "No auto stop" texts are actually buttons !
 
 Have fun :)
+
 
 ## Contact
 
