@@ -78,10 +78,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.settings.setFallbacksEnabled(False)
         self._read_window_settings()
 
-        self.populate()
-
         self.timer = Timer(self)
         self.file = None
+        self.data = None
+        self.data_changed = False
+
+        self.populate()
 
         # Special Windows
         self.fps_window = FramePerSecondWindow(self)
@@ -95,14 +97,37 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_new = QtGui.QAction(u"New Timing", self)
         action_new.setStatusTip(u"Create a new Timing")
         action_new.setAutoRepeat(False)
-        action_new.setDisabled(True)
+        action_new.triggered.connect(self.on_new_timing_triggered)
 
         # Action : Open Timing
         action_open = QtGui.QAction(u"Open Timing", self)
         action_open.setStatusTip(u"Open existing Timing (.timing | .json)")
         action_open.setAutoRepeat(False)
-        # action_open.setDisabled(True)
         action_open.triggered.connect(self.on_open_timing_triggered)
+
+        # ---
+
+        # Action : Current Timing menu
+        current_timing = QtGui.QMenu(
+            u'Current Timing', self
+        )
+
+        # Action : Current Timing : Discard and reload
+        current_timing_reload = QtGui.QAction(
+            u"Discard and Reload",
+            self)
+        current_timing_reload.setStatusTip(
+            u"Discard all changes made since you opened/created that file.")
+        current_timing_reload.setAutoRepeat(False)
+        current_timing_reload.triggered.connect(
+            self.on_discard_changes_n_reload)
+
+        # Action : Recent Timing
+        recent_timings = QtGui.QMenu(
+            u'Recent Timings', self
+        )
+
+        # ---
 
         # Action : Save
         action_save = QtGui.QAction(u"Save", self)
@@ -116,13 +141,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_save_as.setAutoRepeat(False)
         action_save_as.triggered.connect(self.on_save_as_timing_triggered)
 
-        # Action : Recent Timing
-        # TODO
-
         # Action : Exit Program
         action_exit = QtGui.QAction(u"Exit", self)
         action_exit.setStatusTip(u"Close this window")
-        action_exit.triggered.connect(self.close)
+        action_exit.triggered.connect(self.on_close_app)
 
         # -----
 
@@ -167,7 +189,13 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # File menu
         menu_file = menubar.addMenu("File")
         menu_file.setTearOffEnabled(True)
+        menu_file.addAction(action_new)
         menu_file.addAction(action_open)
+        menu_file.addSeparator()
+        menu_file.addMenu(current_timing)
+
+        current_timing.addAction(current_timing_reload)
+
         menu_file.addSeparator()
         menu_file.addAction(action_save)
         menu_file.addAction(action_save_as)
@@ -304,6 +332,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.stop_btn.clicked.connect(self.on_stop_btn_clicked)
         self.reset_btn.clicked.connect(self.on_reset_btn_clicked)
 
+        self.central_list.model.rowsInserted.connect(self.on_content_changed)
+        self.central_list.model.rowsRemoved.connect(self.on_content_changed)
+
     def populate(self):
         """
         Populate the Program at first launch
@@ -311,6 +342,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Set default always on top option.
         if self.action_always_on_top.isChecked():
             self.on_window_always_on_top_triggered()
+
+        self.change_window_title()
 
     def open_fps_window(self):
         """
@@ -355,6 +388,44 @@ class AnimationTimerUI(QtGui.QMainWindow):
     # SLOTS
     # -----
 
+    def on_close_app(self):
+
+        if self.data_changed:
+            message = u'The timing your are woring on has change.'
+            message += u'<p>Do you want to save it before exiting ?<p>'
+
+            window = QtGui.QMessageBox.question(
+                self,
+                u'Timing has change',
+                message,
+                QtGui.QMessageBox.Save,
+                QtGui.QMessageBox.Close
+            )
+
+            if window == QtGui.QMessageBox.Save:
+                self.on_save_timing_triggered()
+
+        # Close the app
+        self.close()
+
+    def on_content_changed(self):
+
+        # If data is none
+        if self.data is None:
+            if self.central_list.row_count() == 0:
+                self.data_changed = False
+            else:
+                self.data_changed = True
+
+        # If not None (a file was opened)
+        else:
+            if self.central_list.get_items() == self.data:
+                self.data_changed = False
+            else:
+                self.data_changed = True
+
+        self.change_window_title()
+
     def on_start_btn_clicked(self):
         if self.timer.isActive():
             self.capture_data()
@@ -393,6 +464,19 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Empty the table
         self.central_list.clear()
 
+    def on_discard_changes_n_reload(self):
+        """
+        Discard all changes and reload base data.
+        - Base data can be an empty sheet or a previously loaded file.
+        """
+        self.on_reset_btn_clicked()
+
+        if self.data is not None:
+            AnimationTimer.import_data(self.data)
+
+        self.data_changed = False
+        self.change_window_title()
+
     def on_maya_show_timeline_triggered(self):
         print("Show on timeline checkbox triggered.")
 
@@ -411,9 +495,22 @@ class AnimationTimerUI(QtGui.QMainWindow):
         url = QtCore.QUrl(DOCS_URL)
         return QtGui.QDesktopServices.openUrl(url)
 
+    def on_new_timing_triggered(self):
+        """
+        When triggered, "create" a new timing.
+        It is just a blank canvas, with no file loaded.
+        """
+        self.file = None
+        self.data = None
+        self.data_changed = False
+        self.on_reset_btn_clicked()
+
     def on_open_timing_triggered(self):
         """
         Open a .timing or .json file and load its contents.
+        ---
+        Save the filename
+        Save the file data to see what changes afteward.
         """
         # Get the selected file
         filename, _ = QtGui.QFileDialog.getOpenFileName(
@@ -430,18 +527,35 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Read the file, validate and import data
         data = AnimationTimer.read_timing_from_file(filename)
         if data is None:
+            message = u'<p>Cannot load the file.</p>'
+            message += u'Please verify it was meant to be used in this plugin.'
+
+            QtGui.QMessageBox.information(
+                self,
+                u'Cannot load the file.',
+                message,
+                QtGui.QMessageBox.Ok
+            )
+
             return
 
+        self.central_list.clear()
         AnimationTimer.import_data(data)
 
         # Set new file as the current file
         self.file = filename
+        self.data = data
+        self.data_changed = False
+        self.change_window_title()
 
     def on_save_timing_triggered(self):
         """
         Save a timing into a file.
         If file exists, do not ask for location
         """
+        # Just in case
+        self.timer.stop()
+
         # If file currently not exists
         if self.file is None:
             dialog = AnimationTimer._open_save_window(self)
@@ -449,42 +563,44 @@ class AnimationTimerUI(QtGui.QMainWindow):
             if dialog.exec_():
                 filename = dialog.selectedFiles()
             else:
-                filename = None
-
-            if not filename:
                 return
-            else:
-                self.file = filename
+
+            self.file = filename[0]
 
         # Get all the data from the table + some magic
-        data = self.central_list.get_dict()
+        data = self.central_list.get_items()
 
         # Then save it !
         AnimationTimer.write_timing_to_file(self.file, data)
+
+        self.data_changed = False
+        self.change_window_title()
 
     def on_save_as_timing_triggered(self):
         """
         Save a timing into a file.
         Always ask for location before saving
         """
+        # Just in case
+        self.timer.stop()
+
         dialog = AnimationTimer._open_save_window(self)
 
         if dialog.exec_():
             filename = dialog.selectedFiles()
         else:
-            filename = None
-
-        if not filename:
             return
 
         # Get all the data from the table + some magic
-        data = self.central_list.get_dict()
+        data = self.central_list.get_items()
 
         # Then save it !
         AnimationTimer.write_timing_to_file(filename, data)
 
         # Set newly save filename as current file
-        self.file = filename
+        self.file = filename[0]
+        self.data_changed = False
+        self.change_window_title()
 
     def on_action_delete_clicked(self):
         """
@@ -503,6 +619,22 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.central_list.add(timer, frame)
 
     # Others
+
+    def change_window_title(self):
+        """
+        Change the MainWindow title based on a loaded file and modifications.
+        """
+        # If no file (filename) so no starting data.
+        if not self.file:
+            if self.data_changed:
+                self.setWindowTitle(TITLE + ': untitled *')
+            else:
+                self.setWindowTitle(TITLE + ': untitled')
+        else:
+            if self.data_changed:
+                self.setWindowTitle(TITLE + ': ' + self.file + ' *')
+            else:
+                self.setWindowTitle(TITLE + ': ' + self.file)
 
     def center_window(self):
         """
@@ -851,6 +983,14 @@ class CenterList(QtGui.QTableView):
         self.model.clear()
         self.horizontalHeader().hide()
 
+    def row_count(self):
+        """
+        Return the number of rows in the model
+        ---
+        Emits signals for specific case to help for other things.
+        """
+        return self.model.rowCount()
+
     def set_headers(self):
         """
         Set the headers for the list.
@@ -861,7 +1001,7 @@ class CenterList(QtGui.QTableView):
 
         self.model.setHorizontalHeaderLabels(headers)
 
-    def get_dict(self):
+    def get_items(self):
         """
         Create a dict of items ()
         """
