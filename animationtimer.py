@@ -83,11 +83,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.data = None
         self.data_changed = False
 
-        self.populate()
-
         # Special Windows
         self.fps_window = FramePerSecondWindow(self)
         self.auto_stop_window = AutoStopWindow(self)
+        self.preference_window = AnimationTimerPreferences(self)
+
+        self.populate()
 
     def create_menu(self):
         """
@@ -113,13 +114,13 @@ class AnimationTimerUI(QtGui.QMainWindow):
         )
 
         # Action : Current Timing : Discard and reload
-        current_timing_reload = QtGui.QAction(
-            u"Discard and Reload",
+        self.current_timing_reload = QtGui.QAction(
+            u"Discard changes",
             self)
-        current_timing_reload.setStatusTip(
+        self.current_timing_reload.setStatusTip(
             u"Discard all changes made since you opened/created that file.")
-        current_timing_reload.setAutoRepeat(False)
-        current_timing_reload.triggered.connect(
+        self.current_timing_reload.setAutoRepeat(False)
+        self.current_timing_reload.triggered.connect(
             self.on_discard_changes_n_reload)
 
         # Action : Recent Timing
@@ -152,6 +153,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
         action_delete = QtGui.QAction(u"Delete row(s)", self)
         action_delete.setStatusTip(u"Delete selected row(s)")
         action_delete.triggered.connect(self.on_action_delete_clicked)
+
+        # Action : Preference Window
+        action_preferences = QtGui.QAction(u"Preferences", self)
+        action_preferences.setStatusTip(u"Open the preferences window")
+        action_preferences.triggered.connect(self.open_preference_window)
 
         # -----
 
@@ -194,7 +200,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menu_file.addSeparator()
         menu_file.addMenu(current_timing)
 
-        current_timing.addAction(current_timing_reload)
+        current_timing.addAction(self.current_timing_reload)
 
         menu_file.addSeparator()
         menu_file.addAction(action_save)
@@ -206,6 +212,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menu_edit = menubar.addMenu("Edit")
         menu_edit.setTearOffEnabled(True)
         menu_edit.addAction(action_delete)
+        menu_edit.addSeparator()
+        menu_edit.addAction(action_preferences)
 
         # Maya menu
         # menu_maya = menubar.addMenu("Maya")
@@ -282,7 +290,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.frames.setNum(0)
 
         # ComboBox
-        self.fps = QtGui.QPushButton("24 fps")
+        self.fps = QtGui.QPushButton()
         self.fps.setFlat(True)
 
     def create_layout(self):
@@ -344,6 +352,18 @@ class AnimationTimerUI(QtGui.QMainWindow):
             self.on_window_always_on_top_triggered()
 
         self.change_window_title()
+        self.current_timing_reload.setDisabled(True)
+
+        # Set default fps
+        project_enabled = _str_to_bool(self.settings.value(
+            "Preferences/enable_project_settings", False))
+        if _str_to_bool(project_enabled):
+            pass  # TODO
+        else:
+            self.fps.setText(
+                self.settings.value(
+                    "Preferences/default_fps",
+                    str(FramePerSecondWindow.default)) + ' fps')
 
     def open_fps_window(self):
         """
@@ -367,6 +387,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
         Can choose auto stop condition in a new window
         """
         self.auto_stop_window.exec_()
+
+    def open_preference_window(self):
+        """
+        Can choose auto stop condition in a new window
+        """
+        self.preference_window.exec_()
 
     def open_about_window(self):
         """
@@ -425,6 +451,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
                 self.data_changed = True
 
         self.change_window_title()
+        if self.data_changed:
+            self.current_timing_reload.setDisabled(False)
+        else:
+            self.current_timing_reload.setDisabled(True)
 
     def on_start_btn_clicked(self):
         if self.timer.isActive():
@@ -504,6 +534,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.data = None
         self.data_changed = False
         self.on_reset_btn_clicked()
+        self.change_window_title()
 
     def on_open_timing_triggered(self):
         """
@@ -516,7 +547,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         filename, _ = QtGui.QFileDialog.getOpenFileName(
             self,
             'Open Timing',
-            QtCore.QDir.homePath(),
+            self.switch_filedialog_dir(),
             'Timing / Json Files (*.timing *.json)',
             '',
             QtGui.QFileDialog.DontUseNativeDialog)
@@ -543,7 +574,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         AnimationTimer.import_data(data)
 
         # Set new file as the current file
-        self.file = filename
+        self.file = QtCore.QDir(filename)
         self.data = data
         self.data_changed = False
         self.change_window_title()
@@ -565,13 +596,13 @@ class AnimationTimerUI(QtGui.QMainWindow):
             else:
                 return
 
-            self.file = filename[0]
+            self.file = QtCore.QDir(filename[0])
 
         # Get all the data from the table + some magic
         data = self.central_list.get_items()
 
         # Then save it !
-        AnimationTimer.write_timing_to_file(self.file, data)
+        AnimationTimer.write_timing_to_file(self.file.path(), data)
 
         self.data_changed = False
         self.change_window_title()
@@ -598,7 +629,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         AnimationTimer.write_timing_to_file(filename, data)
 
         # Set newly save filename as current file
-        self.file = filename[0]
+        self.file = QtCore.QDir(filename[0])
         self.data_changed = False
         self.change_window_title()
 
@@ -632,9 +663,36 @@ class AnimationTimerUI(QtGui.QMainWindow):
                 self.setWindowTitle(TITLE + ': untitled')
         else:
             if self.data_changed:
-                self.setWindowTitle(TITLE + ': ' + self.file + ' *')
+                self.setWindowTitle(TITLE + ': ' + self.file.path() + ' *')
             else:
-                self.setWindowTitle(TITLE + ': ' + self.file)
+                self.setWindowTitle(TITLE + ': ' + self.file.path())
+
+    def switch_filedialog_dir(self, path_only=True):
+        """
+        Get the default fir passed in the preferences window.
+        ---
+        2 choices:
+        - Dir provided : Use it unless...
+        - Project dir enabled : if enabled, use it instead the default dir.
+        """
+        project_save_dir_enabled = _str_to_bool(self.settings.value(
+            "Preferences/project_save_in_dirs", False))
+
+        default_dir = QtCore.QDir(self.settings.value(
+            "Preferences/default_directory"))
+
+        # If no project enabled
+        if not project_save_dir_enabled:
+            directory = default_dir
+        else:
+            # If project enabled
+            project_dir = cmds.workspace(q=True, rd=True)
+            directory = QtCore.QDir(project_dir)
+
+        if path_only:
+            return directory.path()
+        else:
+            return directory
 
     def center_window(self):
         """
@@ -794,7 +852,7 @@ class AnimationTimer(object):
         dialog = QtGui.QFileDialog(parent)
         dialog.setAcceptMode(QtGui.QFileDialog.AcceptSave)
         dialog.setDefaultSuffix('timing')
-        dialog.setDirectory(QtCore.QDir.homePath())
+        dialog.setDirectory(ui.switch_filedialog_dir())
         dialog.setFileMode(QtGui.QFileDialog.AnyFile)
         dialog.setNameFilter(
             'Timing File (*.timing);;Json File (*.json)')
@@ -1047,11 +1105,13 @@ class FramePerSecondWindow(QtGui.QDialog):
 
     fps_preset_list = [6, 12, 15, 24, 25, 30, 48, 50, 60]
     default = 24
+    min_fps = 6
+    max_fps = 120
 
     def __init__(self, parent=None):
         super(FramePerSecondWindow, self).__init__(parent)
 
-        self.current = FramePerSecondWindow.default
+        self.current = None
 
         self.setWindowTitle(u"Choose FPS")
         self.setFixedSize(250, 150)
@@ -1059,6 +1119,10 @@ class FramePerSecondWindow(QtGui.QDialog):
         self.create_controls()
         self.create_layout()
         self.create_connections()
+
+        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings.setFallbacksEnabled(False)
+        self._read_pref_settings()
 
         self.populate()
 
@@ -1086,7 +1150,8 @@ class FramePerSecondWindow(QtGui.QDialog):
         self.separator.setFrameShadow(QtGui.QFrame.Sunken)
 
         self.fps_custom_spinbox = QtGui.QSpinBox()
-        self.fps_custom_spinbox.setRange(6, 120)
+        self.fps_custom_spinbox.setRange(
+            FramePerSecondWindow.min_fps, FramePerSecondWindow.max_fps)
         self.fps_custom_spinbox.setFixedWidth(100)
         self.fps_custom_spinbox.setButtonSymbols(
             QtGui.QAbstractSpinBox.NoButtons)
@@ -1138,6 +1203,8 @@ class FramePerSecondWindow(QtGui.QDialog):
         n = self.fps_combobox.findText(str(self.current))
         self.fps_combobox.setCurrentIndex(n)
         self.on_preset_selected()
+
+        self.current = FramePerSecondWindow.default
 
     # SLOTS
     # -----
@@ -1202,6 +1269,18 @@ class FramePerSecondWindow(QtGui.QDialog):
 
     def on_rejected(self):
         return self.reject()
+
+
+    # Settings
+
+    def _read_pref_settings(self):
+        self.settings.beginGroup("Preferences")
+
+        default_fps = self.settings.value("default_fps", 24)
+
+        FramePerSecondWindow.default = int(default_fps)
+
+        self.settings.endGroup()
 
 
 class AutoStopWindow(QtGui.QDialog):
@@ -1409,6 +1488,254 @@ class AutoStopWindow(QtGui.QDialog):
 
     def on_rejected(self):
         return self.reject()
+
+
+class AnimationTimerPreferences(QtGui.QDialog):
+
+    def __init__(self, parent):
+        super(AnimationTimerPreferences, self).__init__(parent)
+
+        self.setWindowTitle(u'Preferences')
+        self.setFixedSize(400, 350)
+
+        self.create_layout()
+        self.create_connections()
+
+        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings.setFallbacksEnabled(False)
+        self._read_pref_settings()
+
+    def create_layout(self):
+
+        policy = QtGui.QSizePolicy()
+        policy.setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
+        policy.setVerticalPolicy(QtGui.QSizePolicy.Fixed)
+
+        # Set Widgets
+
+        # Menu List
+        self.menu_list = QtGui.QListWidget()
+        self.menu_list.setFixedWidth(100)
+        self.menu_list.addItem(u'General')
+        self.menu_list.addItem(u'Project')
+        self.menu_list.setCurrentRow(0)
+        self.menu_list.setStyleSheet("background-color:#191919;")
+
+        # Set Default FPS
+        self.default_custom_fps_spinbox = QtGui.QSpinBox()
+        self.default_custom_fps_spinbox.setRange(
+            FramePerSecondWindow.min_fps, FramePerSecondWindow.max_fps)
+        self.default_custom_fps_spinbox.setSingleStep(2)
+
+        self.default_fps_label = QtGui.QLabel(u"fps")
+
+        self.default_fps_layout = QtGui.QGridLayout()
+        self.default_fps_layout.addWidget(
+            self.default_custom_fps_spinbox, 0, 0)
+        self.default_fps_layout.addWidget(self.default_fps_label, 0, 1)
+        self.default_fps_layout.setColumnStretch(0, 1)
+
+        self.default_fps_group = QtGui.QGroupBox(u"Default FPS")
+        self.default_fps_group.setLayout(self.default_fps_layout)
+        self.default_fps_group.setSizePolicy(policy)
+
+        # Set Save Default Directory
+        self.default_dir_lineedit = QtGui.QLineEdit()
+        self.default_dir_lineedit.setReadOnly(True)
+        self.default_dir_btn = QtGui.QPushButton(u'...')
+        self.default_dir_btn.setFixedWidth(30)
+        self.default_dir_desc = QtGui.QLabel(
+            u'Will be used as main if you choose not to save timings in '
+            'projects directories.<br>The "Save as..." action will always let '
+            'you choose where to save.')
+        self.default_dir_desc.setWordWrap(True)
+        self.default_dir_desc.setStyleSheet("""
+                                            color:#888888;
+                                            font-style:italic;
+                                            """)
+
+        self.default_dir_hbox = QtGui.QHBoxLayout()
+        self.default_dir_hbox.addWidget(self.default_dir_lineedit)
+        self.default_dir_hbox.addWidget(self.default_dir_btn)
+
+        self.default_dir_vbox = QtGui.QVBoxLayout()
+        self.default_dir_vbox.addLayout(self.default_dir_hbox)
+        self.default_dir_vbox.addWidget(self.default_dir_desc)
+
+        self.default_dir_group = QtGui.QGroupBox(u'Default save directory')
+        self.default_dir_group.setLayout(self.default_dir_vbox)
+
+        # Recent timings to remember
+        self.recent_timing_label1 = QtGui.QLabel(u'Remember')
+        self.recent_timing_label1.setFixedWidth(60)
+        self.recent_timing_label2 = QtGui.QLabel(u'timings')
+        self.recent_timing_spinbox = QtGui.QSpinBox()
+        self.recent_timing_spinbox.setFixedWidth(40)
+        self.recent_timing_spinbox.setValue(10)
+        self.recent_timing_spinbox.setRange(0, 20)
+        self.recent_timing_spinbox.setButtonSymbols(
+            QtGui.QAbstractSpinBox.NoButtons)
+        self.recent_timing_spinbox.setSingleStep(1)
+
+        self.recent_timing_hbox = QtGui.QHBoxLayout()
+        self.recent_timing_hbox.addWidget(self.recent_timing_label1)
+        self.recent_timing_hbox.addWidget(self.recent_timing_spinbox)
+        self.recent_timing_hbox.addWidget(self.recent_timing_label2)
+
+        self.recent_timing_group = QtGui.QGroupBox(u'Recent Timings')
+        self.recent_timing_group.setLayout(self.recent_timing_hbox)
+
+        # Projects Widgets
+
+        # Load timing if project already already opened
+        self.project_load_timing_checkbox = QtGui.QCheckBox(
+            u"Auto Load timing if scene already opened")
+
+        # Save timings in project directories
+        self.project_save_in_dirs = QtGui.QCheckBox(
+            u"Save timings in projects directories")
+
+        # Syncronize data with maya project settings
+        # TODO: Think about that.
+
+        #  Button Box
+        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
+                                                 QtGui.QDialogButtonBox.Cancel)
+        self.button_box.accepted.connect(self.on_accepted)
+        self.button_box.rejected.connect(self.on_rejected)
+
+        # Set Pages
+
+        # General tab
+        self.vbox_general = QtGui.QVBoxLayout()
+        self.vbox_general.setAlignment(QtCore.Qt.AlignTop)
+        self.vbox_general.addWidget(self.default_fps_group)
+        self.vbox_general.addWidget(self.default_dir_group)
+        self.vbox_general.addWidget(self.recent_timing_group)
+
+        self.tab_general = QtGui.QWidget()
+        self.tab_general.setLayout(self.vbox_general)
+
+        # Project tab
+        self.vbox_project = QtGui.QVBoxLayout()
+        self.vbox_project.setAlignment(QtCore.Qt.AlignTop)
+        self.vbox_project.addWidget(self.project_load_timing_checkbox)
+        self.vbox_project.addWidget(self.project_save_in_dirs)
+
+        self.tab_project = QtGui.QWidget()
+        self.tab_project.setLayout(self.vbox_project)
+
+        # Stacked the *pages*
+        self.menu_stacked = QtGui.QStackedWidget()
+        self.menu_stacked.addWidget(self.tab_general)
+        self.menu_stacked.addWidget(self.tab_project)
+
+        # Layout for widgets
+        self.main_hbox = QtGui.QHBoxLayout()
+        self.main_hbox.addWidget(self.menu_list)
+        self.main_hbox.addWidget(self.menu_stacked)
+
+        # layout for main + buttons
+        self.main_vbox = QtGui.QVBoxLayout()
+        self.main_vbox.addLayout(self.main_hbox)
+        self.main_vbox.addWidget(self.button_box)
+
+        self.setLayout(self.main_vbox)
+
+    def create_connections(self):
+        self.menu_list.currentItemChanged.connect(self._change_current_tab)
+
+        self.default_dir_btn.clicked.connect(self._select_dir)
+
+    def on_accepted(self):
+        self._write_pref_settings()
+        return self.accept()
+
+    def on_rejected(self):
+        return self.reject()
+
+    # SLOTS
+    # -----
+
+    def _change_current_tab(self):
+        row = self.menu_list.currentRow()
+        self.menu_stacked.setCurrentIndex(row)
+
+    def _select_dir(self):
+
+        directory = QtGui.QFileDialog.getExistingDirectory(
+            self,
+            u"Select a default directory",
+            '',
+            QtGui.QFileDialog.DontUseNativeDialog |
+            QtGui.QFileDialog.ShowDirsOnly
+            )
+
+        if directory:
+            self.default_dir_lineedit.setText(directory)
+        else:
+            return
+
+    # Settings
+    # --------
+
+    def _read_pref_settings(self):
+        self.settings.beginGroup("Preferences")
+
+        # General
+        self.default_custom_fps_spinbox.setValue(
+            int(self.settings.value("default_fps", 24)))
+
+        # Dir...
+        directory = QtCore.QDir(
+            self.settings.value(
+                "default_directory",
+                QtCore.QDir.homePath()))
+        self.default_dir_lineedit.setText(directory.path())
+
+        self.recent_timing_spinbox.setValue(
+            int(self.settings.value("recent_timing_count", 10)))
+
+        # Project
+        self.project_load_timing_checkbox.setChecked(
+            _str_to_bool(self.settings.value("project_load_timing", True)))
+
+        self.project_save_in_dirs.setChecked(
+            _str_to_bool(self.settings.value("project_save_in_dirs", True)))
+
+        self.settings.endGroup()
+
+    def _write_pref_settings(self):
+        """
+        Write settings into the config file
+        """
+        self.settings.beginGroup("Preferences")
+
+        # General
+        self.settings.setValue(
+            "default_fps",
+            self.default_custom_fps_spinbox.value())
+
+        # For directory, passes it to Qdir for multi-system
+        directory = QtCore.QDir(self.default_dir_lineedit.text())
+        self.settings.setValue(
+            "default_directory",
+            directory.path())
+
+        self.settings.setValue(
+            "recent_timing_count",
+            self.recent_timing_spinbox.value())
+
+        # Project
+        self.settings.setValue(
+            "project_load_timing",
+            self.project_load_timing_checkbox.isChecked())
+
+        self.settings.setValue(
+            "project_save_in_dirs",
+            self.project_save_in_dirs.isChecked())
+
+        self.settings.endGroup()
 
 
 if __name__ == "__main__":
