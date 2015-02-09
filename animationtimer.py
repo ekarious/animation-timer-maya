@@ -82,6 +82,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.file = None
         self.data = None
         self.data_changed = False
+        self.recent_timings = RecentTiming(self)
 
         # Special Windows
         self.fps_window = FramePerSecondWindow(self)
@@ -124,9 +125,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
             self.on_discard_changes_n_reload)
 
         # Action : Recent Timing
-        recent_timings = QtGui.QMenu(
+        self.recent_timing_menu = QtGui.QMenu(
             u'Recent Timings', self
         )
+
+        self.empty_action = QtGui.QAction(u'Empty', self)
+        self.empty_action.setDisabled(True)
 
         # ---
 
@@ -193,20 +197,20 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menubar = self.menuBar()
 
         # File menu
-        menu_file = menubar.addMenu("File")
-        menu_file.setTearOffEnabled(True)
-        menu_file.addAction(action_new)
-        menu_file.addAction(action_open)
-        menu_file.addSeparator()
-        menu_file.addMenu(current_timing)
+        self.menu_file = menubar.addMenu("File")
+        self.menu_file.setTearOffEnabled(True)
+        self.menu_file.addAction(action_new)
+        self.menu_file.addAction(action_open)
+        self.menu_file.addSeparator()
+        self.menu_file.addMenu(current_timing)
 
         current_timing.addAction(self.current_timing_reload)
-
-        menu_file.addSeparator()
-        menu_file.addAction(action_save)
-        menu_file.addAction(action_save_as)
-        menu_file.addSeparator()
-        menu_file.addAction(action_exit)
+        self.menu_file.addMenu(self.recent_timing_menu)  # Children added later.
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(action_save)
+        self.menu_file.addAction(action_save_as)
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(action_exit)
 
         # Edit menu
         menu_edit = menubar.addMenu("Edit")
@@ -355,15 +359,18 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.current_timing_reload.setDisabled(True)
 
         # Set default fps
-        project_enabled = _str_to_bool(self.settings.value(
-            "Preferences/enable_project_settings", False))
-        if _str_to_bool(project_enabled):
-            pass  # TODO
-        else:
-            self.fps.setText(
-                self.settings.value(
-                    "Preferences/default_fps",
-                    str(FramePerSecondWindow.default)) + ' fps')
+        self.fps.setText(
+            self.settings.value(
+                "Preferences/default_fps",
+                str(FramePerSecondWindow.default)) + ' fps')
+
+        # Genarate recent timings menu
+        self._generate_recent_timing_menu()
+
+        # if checked in option, auto load last work
+        if _str_to_bool(self.settings.value("Preferences/auto_load_last_timing")):
+            filename = self.recent_timings.read(0)
+            self.load_timing(filename)
 
     def open_fps_window(self):
         """
@@ -422,7 +429,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
             window = QtGui.QMessageBox.question(
                 self,
-                u'Timing has change',
+                u'Timing has changed !',
                 message,
                 QtGui.QMessageBox.Save,
                 QtGui.QMessageBox.Close
@@ -502,7 +509,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.on_reset_btn_clicked()
 
         if self.data is not None:
-            AnimationTimer.import_data(self.data)
+            self.import_data(self.data)
 
         self.data_changed = False
         self.change_window_title()
@@ -553,31 +560,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
             QtGui.QFileDialog.DontUseNativeDialog)
 
         if not filename:
-            return
+            return None
 
-        # Read the file, validate and import data
-        data = AnimationTimer.read_timing_from_file(filename)
-        if data is None:
-            message = u'<p>Cannot load the file.</p>'
-            message += u'Please verify it was meant to be used in this plugin.'
-
-            QtGui.QMessageBox.information(
-                self,
-                u'Cannot load the file.',
-                message,
-                QtGui.QMessageBox.Ok
-            )
-
-            return
-
-        self.central_list.clear()
-        AnimationTimer.import_data(data)
-
-        # Set new file as the current file
-        self.file = QtCore.QDir(filename)
-        self.data = data
-        self.data_changed = False
-        self.change_window_title()
+        self.load_timing(filename)
 
     def on_save_timing_triggered(self):
         """
@@ -597,6 +582,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
                 return
 
             self.file = QtCore.QDir(filename[0])
+
+            # Add to recent timing menu
+            self.recent_timings.create(self.file)
+            self._generate_recent_timing_menu()
 
         # Get all the data from the table + some magic
         data = self.central_list.get_items()
@@ -633,6 +622,10 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.data_changed = False
         self.change_window_title()
 
+        # Update to recent timing menu
+        self.recent_timings.update(self.file)
+        self._generate_recent_timing_menu()
+
     def on_action_delete_clicked(self):
         """
         Delete current selected rows
@@ -649,7 +642,70 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         self.central_list.add(timer, frame)
 
+    def on_recent_item_triggered(self):
+        """
+        Reload the file triggered.
+        """
+        filename = self.sender().text()
+
+        self.load_timing(filename)
+
+    # Files
+
+    def load_timing(self, filename):
+        """
+            Actually load the file into the program.
+        """
+        data = AnimationTimer.read_timing_from_file(filename)
+        # Couldn't laod the file.
+        if data is None:
+            # Delete the file if exists.
+            try:
+                self.recent_timings.delete(filename)
+            except:
+                pass
+
+            # Set auto load to False, security.
+            self.settings.setValue(
+                "Preferences/auto_load_last_timing", False)
+            self.preference_window.auto_load_timing.setChecked(False)
+
+            # Regenerate the menu
+            self._generate_recent_timing_menu()
+
+            return False
+
+        self.on_reset_btn_clicked()
+
+        # Import the data
+        self.import_data(data)
+
+        # Set new file as the current file
+        self.file = QtCore.QDir(filename)
+        self.data = data
+        self.data_changed = False
+        self.change_window_title()
+        self.current_timing_reload.setDisabled(True)
+
+        # Add to recent timing menu
+        self.recent_timings.create(self.file)
+        self._generate_recent_timing_menu()
+
     # Others
+
+    def import_data(self, data):
+        fps = data[0].get('fps')
+
+        for x in range(1, len(data)):
+            time = data[x].get('time')
+            frame = data[x].get('frame')
+            self.central_list.add(time, frame)
+
+        # Set fps
+        self.fps_window.current = int(fps)
+        self.fps.setText(str(fps) + " fps")
+
+        self.central_list.horizontalHeader().show()
 
     def change_window_title(self):
         """
@@ -703,6 +759,25 @@ class AnimationTimerUI(QtGui.QMainWindow):
         qr.moveCenter(cp)
         self.move(qr.topLeft())
 
+    def _generate_recent_timing_menu(self):
+        """
+        Generate the menu list for the app menu.
+        """
+        if self.recent_timings.read():
+            self.recent_timing_menu.clear()
+            for value in self.recent_timings.read():
+                recent_menu_item = QtGui.QAction(
+                    value,
+                    self)
+                recent_menu_item.setAutoRepeat(False)
+                recent_menu_item.triggered.connect(
+                    self.on_recent_item_triggered)
+
+                self.recent_timing_menu.addAction(recent_menu_item)
+        else:
+            self.recent_timing_menu.clear()
+            self.recent_timing_menu.addAction(self.empty_action)
+
     @classmethod
     def _load_settings_file(cls):
         return QtCore.QSettings(QtCore.QSettings.IniFormat,
@@ -751,6 +826,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
     def closeEvent(self, event):
         # Save window attributes settings on close
         self._write_window_settings()
+
+        # Save recent timing list
+        self.recent_timings.save()
 
     def moveEvent(self, event):
         # Save window attributes settings on move
@@ -803,7 +881,7 @@ class AnimationTimer(object):
         # Add an item to the list at the top.
         d = {}
         d['plugin_name'] = TITLE
-        d['fps'] = ui.fps_window.current
+        d['fps'] = atui.fps_window.current
 
         data.insert(0, d)
 
@@ -821,38 +899,38 @@ class AnimationTimer(object):
         Open a file, read the content and show it into the  table
         - filename
         """
-        with open(filename, "r") as f:
-            data = json.load(f)
-
         try:
-            if data[0].get('plugin_name') == TITLE and \
-               data[0].get('fps'):
-                return data
-        except KeyError:
-            return None
+            with open(filename, "r") as f:
+                data = json.load(f)
+        except IOError:
+            return error_display(
+                "No file found : " + filename + ". "
+                "The auto load for the last timing option was "
+                "disabled.")
 
-    @classmethod
-    def import_data(cls, data):
-        """
-        Import data to software.
-        """
+        name = data[0].get('plugin_name')
         fps = data[0].get('fps')
 
-        for x in range(1, len(data)):
-            time = data[x].get('time')
-            frame = data[x].get('frame')
-            ui.central_list.add(time, frame)
+        if name == TITLE and fps:
+            return data
+        else:
+            message = u'<p>Cannot load the file.</p>'
+            message += u'Please verify it was meant to be used in this plugin.'
 
-        # Set fps
-        ui.fps_window.current = int(fps)
-        ui.fps.setText(str(fps) + " fps")
+            QtGui.QMessageBox.information(
+                atui,
+                u'Cannot load the file.',
+                message,
+                QtGui.QMessageBox.Ok
+            )
+            return None
 
     @classmethod
     def _open_save_window(cls, parent):
         dialog = QtGui.QFileDialog(parent)
         dialog.setAcceptMode(QtGui.QFileDialog.AcceptSave)
         dialog.setDefaultSuffix('timing')
-        dialog.setDirectory(ui.switch_filedialog_dir())
+        dialog.setDirectory(atui.switch_filedialog_dir())
         dialog.setFileMode(QtGui.QFileDialog.AnyFile)
         dialog.setNameFilter(
             'Timing File (*.timing);;Json File (*.json)')
@@ -919,7 +997,7 @@ class Timer(QtCore.QTimer):
         Auto Stop the timer at a choosen time if needed.
         """
         # Get current auto stop state.
-        auto_stop = ui.auto_stop_window.current
+        auto_stop = atui.auto_stop_window.current
 
         if isinstance(auto_stop, QtCore.QTime):
             if self.time >= auto_stop:
@@ -932,10 +1010,10 @@ class Timer(QtCore.QTimer):
         Auto Stop the timer at a choosen frame if needed.
         """
         # Get current auto stop state.
-        auto_stop = ui.auto_stop_window.current
+        auto_stop = atui.auto_stop_window.current
 
         if isinstance(auto_stop, int):
-            if int(ui.frames.text()) >= auto_stop:
+            if int(atui.frames.text()) >= auto_stop:
                 self.is_stop_needed = True
         else:
             pass
@@ -952,7 +1030,7 @@ class Timer(QtCore.QTimer):
     def on_timer_changed(self):
         """Function triggered every time the timer's timeout"""
         # Check for AutoStop
-        if ui.auto_stop_window.current is not None:
+        if atui.auto_stop_window.current is not None:
             self.auto_stop_at_time()
             self.auto_stop_at_frame()
 
@@ -961,7 +1039,7 @@ class Timer(QtCore.QTimer):
 
         frames_amount = AnimationTimer.calculate_frames(
             ms,
-            ui.fps_window.current)
+            atui.fps_window.current)
 
         # Check if auto stop needed.
         if self.is_stop_needed is True:
@@ -980,10 +1058,10 @@ class Timer(QtCore.QTimer):
             self.stop()
 
         # Update the Display with the QTime object into a specific format.
-        ui.timer_visual.setText(self.time.toString("mm:ss:zzz"))
+        atui.timer_visual.setText(self.time.toString("mm:ss:zzz"))
 
         # Update the frames count.
-        ui.frames.setNum(int(frames_amount))
+        atui.frames.setNum(int(frames_amount))
 
 
 class CenterList(QtGui.QTableView):
@@ -1084,16 +1162,16 @@ class CenterList(QtGui.QTableView):
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
-            ui.on_start_btn_clicked()
+            atui.on_start_btn_clicked()
             event.accept()
         elif event.key() == QtCore.Qt.Key_Escape:
-            ui.on_stop_btn_clicked()
+            atui.on_stop_btn_clicked()
             event.accept()
         elif event.key() == QtCore.Qt.Key_Backspace:
             if len(self.selectionModel().selectedRows()) > 0:
                 self.remove()
             else:
-                ui.on_reset_btn_clicked()
+                atui.on_reset_btn_clicked()
 
             event.accept()
         else:
@@ -1264,12 +1342,11 @@ class FramePerSecondWindow(QtGui.QDialog):
 
         self.current = value
 
-        ui.fps.setText(str(self.current) + " fps")
+        atui.fps.setText(str(self.current) + " fps")
         return self.accept()
 
     def on_rejected(self):
         return self.reject()
-
 
     # Settings
 
@@ -1471,23 +1548,179 @@ class AutoStopWindow(QtGui.QDialog):
         """
         if self.radio_none.isChecked():
             self.current = None
-            ui.timing_option_btn.setText("No Auto Stop")
+            atui.timing_option_btn.setText("No Auto Stop")
 
         if self.radio_time.isChecked():
             self.current = self.time_edit.time()
-            ui.timing_option_btn.setText(
+            atui.timing_option_btn.setText(
                 "Auto Stop at " + self.time_edit.time().toString("mm:ss:zzz"))
 
         if self.radio_frames.isChecked():
             self.current = int(self.frames_spinbox.value())
             frame_text = ' frame' if str(self.current) == '1' else ' frames'
-            ui.timing_option_btn.setText(
+            atui.timing_option_btn.setText(
                 "Auto Stop at " + str(self.current) + frame_text)
 
         return self.accept()
 
     def on_rejected(self):
         return self.reject()
+
+
+class RecentTiming(object):
+
+    max_timing = 10
+
+    def __init__(self, parent):
+        self.parent = parent
+        self.recent_list = []
+
+        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings.setFallbacksEnabled(False)
+
+        self.max_count = int(self.settings.value(
+            "max_recent_timing", RecentTiming.max_timing))
+
+        self._load_from_file()
+
+    def create(self, filename):
+        """
+        Add a recent timing to the list.
+        ---
+        - filename : QDir object with filename.
+        """
+        if isinstance(filename, QtCore.QDir):
+
+            # If item already exists
+            if self.recent_list.count(filename.path()):
+                self.update(filename)
+            # Else...
+            else:
+                if self.count() >= self.max_count:
+                    self.recent_list.pop()
+
+                self.recent_list.insert(0, filename.path())
+
+        self._uniqify()
+
+    def read(self, index=-1):
+        """
+        Read recent timings filename or just one if index exists.
+        ---
+        - index : [n] index. 0 is the minimum. -1 is None like.
+        """
+        if index < 0:
+            return self.recent_list
+        else:
+            return self.recent_list[index]
+
+    def update(self, filename, index=0):
+        """
+        Update a recent timing in the list.
+        ---
+        - filename : QDir object with filename.
+        - index : new index to move it to [default: 0]
+        """
+        if isinstance(filename, QtCore.QDir):
+            self.recent_list.remove(filename.path())
+            self.recent_list.insert(index, filename.path())
+
+            self._uniqify()
+
+    def delete(self, data):
+        """
+        Remove a recent timing from the list.
+        ---
+        - data : QDir object with filename or list index.
+        """
+        if isinstance(data, QtCore.QDir):
+            self.recent_list.remove(data.path())
+        elif isinstance(data, basestring):
+            self.recent_list.remove(data)
+        elif isinstance(data, int):
+            self.recent_list.pop(data)
+        else:
+            return False
+
+        self._uniqify()
+
+    def clear(self):
+        """
+        Clear the whole list.
+        """
+        self.recent_list = []
+        return self.recent_list
+
+    def reload(self):
+        """
+        Reload the recent timing list.
+        """
+        self.clear()
+        self._load_from_file()
+
+    def count(self):
+        return len(self.recent_list)
+
+    def save(self):
+        """
+        Launch the save process.
+        """
+        return self._save_to_file()
+
+    def load(self):
+        """
+        Launch the load process.
+        """
+        return self._load_from_file()
+
+    # ---
+
+    def _uniqify(self):
+        """
+        Make sure all link in the list are unique !
+        """
+        known_list = set()
+        newlist = []
+
+        for item in self.recent_list:
+            if item in known_list:
+                continue
+            newlist.append(item)
+            known_list.add(item)
+
+        self.recent_list[:] = newlist
+
+    def _save_to_file(self):
+        """
+        Save new stuff to animation timer settings ini file.
+        """
+        self.settings.beginGroup("RecentTimings")
+
+        self._uniqify()
+
+        for key, value in enumerate(self.recent_list):
+            self.settings.setValue(
+                "recent_" + str(key + 1),
+                value)
+
+        self.settings.endGroup()
+
+    def _load_from_file(self):
+        """
+        Load data from the animation timing settings ini file.
+        """
+        self.settings.beginGroup("RecentTimings")
+
+        keys = self.settings.allKeys()
+
+        if keys:
+            for key in keys:
+                self.recent_list.append(
+                    self.settings.value(key))
+
+        self._uniqify()
+
+        self.settings.endGroup()
 
 
 class AnimationTimerPreferences(QtGui.QDialog):
@@ -1518,6 +1751,7 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.menu_list.setFixedWidth(100)
         self.menu_list.addItem(u'General')
         self.menu_list.addItem(u'Project')
+        self.menu_list.addItem(u'Recent Timings')
         self.menu_list.setCurrentRow(0)
         self.menu_list.setStyleSheet("background-color:#191919;")
 
@@ -1545,8 +1779,8 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.default_dir_btn = QtGui.QPushButton(u'...')
         self.default_dir_btn.setFixedWidth(30)
         self.default_dir_desc = QtGui.QLabel(
-            u'Will be used as main if you choose not to save timings in '
-            'projects directories.<br>The "Save as..." action will always let '
+            u'Will be used if you choose not to save timings in '
+            'projects directories.<br>"Save as..." action will always let '
             'you choose where to save.')
         self.default_dir_desc.setWordWrap(True)
         self.default_dir_desc.setStyleSheet("""
@@ -1565,10 +1799,27 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.default_dir_group = QtGui.QGroupBox(u'Default save directory')
         self.default_dir_group.setLayout(self.default_dir_vbox)
 
-        # Recent timings to remember
-        self.recent_timing_label1 = QtGui.QLabel(u'Remember')
-        self.recent_timing_label1.setFixedWidth(60)
-        self.recent_timing_label2 = QtGui.QLabel(u'timings')
+        # Auto load the last timing opened
+        self.auto_load_timing = QtGui.QCheckBox(
+            u"Auto load last timing you worked on.")
+
+        self.auto_load_timing_vbox = QtGui.QVBoxLayout()
+        self.auto_load_timing_vbox.addWidget(self.auto_load_timing)
+
+        self.auto_load_timing_group = QtGui.QGroupBox(
+            u'When application starts')
+        self.auto_load_timing_group.setLayout(self.auto_load_timing_vbox)
+
+        # Projects
+
+        # Save timings in project directories
+        self.project_save_in_dirs = QtGui.QCheckBox(
+            u"Save timings in projects directories")
+
+        # Recent Timings
+
+        # Number to remember
+        self.recent_timing_label = QtGui.QLabel(u'timings')
         self.recent_timing_spinbox = QtGui.QSpinBox()
         self.recent_timing_spinbox.setFixedWidth(40)
         self.recent_timing_spinbox.setValue(10)
@@ -1578,25 +1829,12 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.recent_timing_spinbox.setSingleStep(1)
 
         self.recent_timing_hbox = QtGui.QHBoxLayout()
-        self.recent_timing_hbox.addWidget(self.recent_timing_label1)
         self.recent_timing_hbox.addWidget(self.recent_timing_spinbox)
-        self.recent_timing_hbox.addWidget(self.recent_timing_label2)
+        self.recent_timing_hbox.addWidget(self.recent_timing_label)
 
-        self.recent_timing_group = QtGui.QGroupBox(u'Recent Timings')
+        self.recent_timing_group = QtGui.QGroupBox(
+            u'Number to remember')
         self.recent_timing_group.setLayout(self.recent_timing_hbox)
-
-        # Projects Widgets
-
-        # Load timing if project already already opened
-        self.project_load_timing_checkbox = QtGui.QCheckBox(
-            u"Auto Load timing if scene already opened")
-
-        # Save timings in project directories
-        self.project_save_in_dirs = QtGui.QCheckBox(
-            u"Save timings in projects directories")
-
-        # Syncronize data with maya project settings
-        # TODO: Think about that.
 
         #  Button Box
         self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
@@ -1611,7 +1849,7 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.vbox_general.setAlignment(QtCore.Qt.AlignTop)
         self.vbox_general.addWidget(self.default_fps_group)
         self.vbox_general.addWidget(self.default_dir_group)
-        self.vbox_general.addWidget(self.recent_timing_group)
+        self.vbox_general.addWidget(self.auto_load_timing_group)
 
         self.tab_general = QtGui.QWidget()
         self.tab_general.setLayout(self.vbox_general)
@@ -1619,16 +1857,24 @@ class AnimationTimerPreferences(QtGui.QDialog):
         # Project tab
         self.vbox_project = QtGui.QVBoxLayout()
         self.vbox_project.setAlignment(QtCore.Qt.AlignTop)
-        self.vbox_project.addWidget(self.project_load_timing_checkbox)
         self.vbox_project.addWidget(self.project_save_in_dirs)
 
         self.tab_project = QtGui.QWidget()
         self.tab_project.setLayout(self.vbox_project)
 
+        # Recent Timings tab
+        self.vbox_recent_timings = QtGui.QVBoxLayout()
+        self.vbox_recent_timings.setAlignment(QtCore.Qt.AlignTop)
+        self.vbox_recent_timings.addWidget(self.recent_timing_group)
+
+        self.tab_recent_timings = QtGui.QWidget()
+        self.tab_recent_timings.setLayout(self.vbox_recent_timings)
+
         # Stacked the *pages*
         self.menu_stacked = QtGui.QStackedWidget()
         self.menu_stacked.addWidget(self.tab_general)
         self.menu_stacked.addWidget(self.tab_project)
+        self.menu_stacked.addWidget(self.tab_recent_timings)
 
         # Layout for widgets
         self.main_hbox = QtGui.QHBoxLayout()
@@ -1694,12 +1940,12 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.default_dir_lineedit.setText(directory.path())
 
         self.recent_timing_spinbox.setValue(
-            int(self.settings.value("recent_timing_count", 10)))
+            int(self.settings.value("max_recent_timing", 10)))
+
+        self.auto_load_timing.setChecked(
+            _str_to_bool(self.settings.value("auto_load_last_timing", False)))
 
         # Project
-        self.project_load_timing_checkbox.setChecked(
-            _str_to_bool(self.settings.value("project_load_timing", True)))
-
         self.project_save_in_dirs.setChecked(
             _str_to_bool(self.settings.value("project_save_in_dirs", True)))
 
@@ -1723,14 +1969,14 @@ class AnimationTimerPreferences(QtGui.QDialog):
             directory.path())
 
         self.settings.setValue(
-            "recent_timing_count",
+            "max_recent_timing",
             self.recent_timing_spinbox.value())
 
-        # Project
         self.settings.setValue(
-            "project_load_timing",
-            self.project_load_timing_checkbox.isChecked())
+            "auto_load_last_timing",
+            self.auto_load_timing.isChecked())
 
+        # Project
         self.settings.setValue(
             "project_save_in_dirs",
             self.project_save_in_dirs.isChecked())
@@ -1741,9 +1987,9 @@ class AnimationTimerPreferences(QtGui.QDialog):
 if __name__ == "__main__":
 
     try:
-        ui.close()
+        atui.close()
     except:
         pass
 
-    ui = AnimationTimerUI()
-    ui.show()
+    atui = AnimationTimerUI()
+    atui.show()
