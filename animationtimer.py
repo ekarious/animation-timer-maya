@@ -1695,8 +1695,9 @@ class RecentTiming(object):
         Save new stuff to animation timer settings ini file.
         """
         self.settings.beginGroup("RecentTimings")
+        self.settings.remove('')  # Remove all key into that group
 
-        self._uniqify()
+        self._uniqify()  # Make sure every line is unique
 
         for key, value in enumerate(self.recent_list):
             self.settings.setValue(
