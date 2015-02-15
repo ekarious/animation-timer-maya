@@ -424,7 +424,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
     def on_close_app(self):
 
         if self.data_changed:
-            message = u'The timing your are woring on has change.'
+            message = u'The timing your are working on has change.'
             message += u'<p>Do you want to save it before exiting ?<p>'
 
             window = QtGui.QMessageBox.question(
@@ -1963,7 +1963,7 @@ class AnimationTimerPreferences(QtGui.QDialog):
             "default_fps",
             self.default_custom_fps_spinbox.value())
 
-        # For directory, passes it to Qdir for multi-system
+        # For directory, passes it to QDir for multi-system
         directory = QtCore.QDir(self.default_dir_lineedit.text())
         self.settings.setValue(
             "default_directory",
