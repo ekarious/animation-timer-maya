@@ -424,7 +424,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
     def on_close_app(self):
 
         if self.data_changed:
-            message = u'The timing your are working on has change.'
+            message = u'The timing your are working on has changes.'
             message += u'<p>Do you want to save it before exiting ?<p>'
 
             window = QtGui.QMessageBox.question(
@@ -639,8 +639,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
         """
         timer = self.timer.get("mm:ss:zzz")
         frame = self.frames.text()
+        note = u""
 
-        self.central_list.add(timer, frame)
+        self.central_list.add(timer, frame, note)
 
     def on_recent_item_triggered(self):
         """
@@ -699,7 +700,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         for x in range(1, len(data)):
             time = data[x].get('time')
             frame = data[x].get('frame')
-            self.central_list.add(time, frame)
+            note = data[x].get('note')
+            self.central_list.add(time, frame, note)
 
         # Set fps
         self.fps_window.current = int(fps)
@@ -1084,7 +1086,7 @@ class CenterList(QtGui.QTableView):
 
         self.setModel(self.model)
 
-    def add(self, time, frame):
+    def add(self, time, frame, note):
         """
         Add a row to the table
 
@@ -1094,13 +1096,23 @@ class CenterList(QtGui.QTableView):
         """
         self.set_headers()
 
+        # Time
         row0 = QtGui.QStandardItem(str(time))
+        row0.setEditable(False)
         row0.setTextAlignment(QtCore.Qt.AlignCenter)
 
+        # Frame
         row1 = QtGui.QStandardItem(str(frame))
+        row1.setEditable(False)
         row1.setTextAlignment(QtCore.Qt.AlignCenter)
 
-        l = [row0, row1]
+        # Note
+        row2 = QtGui.QStandardItem(str(note))
+        row2.setEditable(True)
+        row2.setToolTip(u"Double click to edit")
+        row2.setTextAlignment(QtCore.Qt.AlignVCenter)
+
+        l = [row0, row1, row2]
 
         self.model.appendRow(l)
 
@@ -1132,8 +1144,9 @@ class CenterList(QtGui.QTableView):
         Set the headers for the list.
         """
         headers = []
-        headers.append(u"Time")
+        headers.append(u"Times")
         headers.append(u"Frames")
+        headers.append(u"Notes")
 
         self.model.setHorizontalHeaderLabels(headers)
 
@@ -1152,9 +1165,11 @@ class CenterList(QtGui.QTableView):
             d = {}
             d["time"] = self.model.item(row, 0).text()
             d["frame"] = self.model.item(row, 1).text()
+            d["note"] = self.model.item(row, 2).text()
 
             l.append(d)
 
+        print l
         return l
 
     # EVENTS
