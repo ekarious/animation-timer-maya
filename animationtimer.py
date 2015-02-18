@@ -10,6 +10,7 @@ from shiboken import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.OpenMaya as om
 import maya.cmds as cmds
+import maya.mel as mel
 
 from math import ceil
 import json
@@ -17,7 +18,7 @@ import json
 # Constants
 TITLE = u"Animation Timer"
 AUTHOR = u"Yann Schmidt"
-VERSION = u"1.2"
+VERSION = u"1.3"
 USER_SCRIPT_DIR = cmds.internalVar(usd=True)
 USER_PREFS_DIR = cmds.internalVar(upd=True)
 DOCS_URL = 'http://yannschmidt.com/scripts/maya/animation-timer/docs/index'
@@ -187,6 +188,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
                                      " inside a web browser")
         userguideAction.triggered.connect(self.on_open_documentation_triggered)
 
+        # Action : Add to Shelf
+        shelficon_action = QtGui.QAction(u"Add to Shelf", self)
+        shelficon_action.setStatusTip(u"Add a shortcut to the selected shelf.")
+        shelficon_action.triggered.connect(self.on_add_to_shelf)
+
         # Action : About Window
         action_about = QtGui.QAction(u"About", self)
         action_about.setStatusTip(u"About Animation Timer")
@@ -230,6 +236,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Help menu
         menu_help = menubar.addMenu("Help")
         menu_help.addAction(userguideAction)
+        menu_help.addAction(shelficon_action)
+        menu_help.addSeparator()
         menu_help.addAction(action_about)
 
     def create_controls(self):
@@ -424,7 +432,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
     def on_close_app(self):
 
         if self.data_changed:
-            message = u'The timing your are woring on has change.'
+            message = u'The timing your are working on has changes.'
             message += u'<p>Do you want to save it before exiting ?<p>'
 
             window = QtGui.QMessageBox.question(
@@ -532,6 +540,25 @@ class AnimationTimerUI(QtGui.QMainWindow):
         url = QtCore.QUrl(DOCS_URL)
         return QtGui.QDesktopServices.openUrl(url)
 
+    def on_add_to_shelf(self):
+        """
+        Add the script to a shelf icon
+        """
+        # Query the current selected Shelf
+        gShelfTopLevel = mel.eval('$temp1=$gShelfTopLevel')
+        current_shelf = cmds.tabLayout(gShelfTopLevel, q=True, st=True)
+
+        # Create the shelf button
+        return cmds.shelfButton(
+            p=current_shelf,
+            rpt=True,
+            image="pythonFamily.png",
+            image1="anim_timer_shelficon.png",
+            stp="python",
+            l="Open Animation Timer v%s" % VERSION,
+            command="import animationtimer; animationtimer.show()"
+        )
+
     def on_new_timing_triggered(self):
         """
         When triggered, "create" a new timing.
@@ -548,7 +575,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         Open a .timing or .json file and load its contents.
         ---
         Save the filename
-        Save the file data to see what changes afteward.
+        Save the file data to see what changes afterward.
         """
         # Get the selected file
         filename, _ = QtGui.QFileDialog.getOpenFileName(
@@ -639,8 +666,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
         """
         timer = self.timer.get("mm:ss:zzz")
         frame = self.frames.text()
+        note = u""
 
-        self.central_list.add(timer, frame)
+        self.central_list.add(timer, frame, note)
 
     def on_recent_item_triggered(self):
         """
@@ -699,7 +727,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         for x in range(1, len(data)):
             time = data[x].get('time')
             frame = data[x].get('frame')
-            self.central_list.add(time, frame)
+            note = data[x].get('note')
+            self.central_list.add(time, frame, note)
 
         # Set fps
         self.fps_window.current = int(fps)
@@ -1084,7 +1113,7 @@ class CenterList(QtGui.QTableView):
 
         self.setModel(self.model)
 
-    def add(self, time, frame):
+    def add(self, time, frame, note):
         """
         Add a row to the table
 
@@ -1094,13 +1123,23 @@ class CenterList(QtGui.QTableView):
         """
         self.set_headers()
 
+        # Time
         row0 = QtGui.QStandardItem(str(time))
+        row0.setEditable(False)
         row0.setTextAlignment(QtCore.Qt.AlignCenter)
 
+        # Frame
         row1 = QtGui.QStandardItem(str(frame))
+        row1.setEditable(False)
         row1.setTextAlignment(QtCore.Qt.AlignCenter)
 
-        l = [row0, row1]
+        # Note
+        row2 = QtGui.QStandardItem(str(note))
+        row2.setEditable(True)
+        row2.setToolTip(u"Double click to edit")
+        row2.setTextAlignment(QtCore.Qt.AlignVCenter)
+
+        l = [row0, row1, row2]
 
         self.model.appendRow(l)
 
@@ -1132,8 +1171,9 @@ class CenterList(QtGui.QTableView):
         Set the headers for the list.
         """
         headers = []
-        headers.append(u"Time")
+        headers.append(u"Times")
         headers.append(u"Frames")
+        headers.append(u"Notes")
 
         self.model.setHorizontalHeaderLabels(headers)
 
@@ -1152,6 +1192,7 @@ class CenterList(QtGui.QTableView):
             d = {}
             d["time"] = self.model.item(row, 0).text()
             d["frame"] = self.model.item(row, 1).text()
+            d["note"] = self.model.item(row, 2).text()
 
             l.append(d)
 
@@ -1963,7 +2004,7 @@ class AnimationTimerPreferences(QtGui.QDialog):
             "default_fps",
             self.default_custom_fps_spinbox.value())
 
-        # For directory, passes it to Qdir for multi-system
+        # For directory, passes it to QDir for multi-system
         directory = QtCore.QDir(self.default_dir_lineedit.text())
         self.settings.setValue(
             "default_directory",
@@ -1985,6 +2026,22 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.settings.endGroup()
 
 
+def show():
+    """
+    Simply launching the program.
+    """
+    global atui
+
+    try:
+        atui.close()
+    except:
+        pass
+
+    atui = AnimationTimerUI()
+    atui.show()
+
+
+# Possibility to run the program by launching it simply...
 if __name__ == "__main__":
 
     try:
