@@ -8,13 +8,14 @@ Or do you want to change a part of your animation with a timing you have in your
 If so, this program can help you.
 To kick start your blocking process or test out if the timing you think about is good or bad.
 
+Current version : 1.3
 
-## Using process
+## Informations
 
-When you think about your animation, everytime you think about something (like a key pose for exemple),
+When you think about your animation, every time you think about something (like a key pose for exemple),
 you can save the time and frame that pose might need to happened.
 
-Exemple :
+Example :
 
 Let's say you want to animate a ball.
 
@@ -33,29 +34,56 @@ For a video tutorial, go : `http://yannschmidt.com/scripts/maya/animation-timer/
 
 It was tested with Maya 2014 on OSX and Windows. I cannot works easily on older Maya version because it needs a version of PySide and Qt to be installed. Since Maya 2014, those are packed with it when you installed the software.
 
-It sould be working on Maya 2015 but i didn't tested it.
+It should be working on Maya 2015 but i didn't tested it.
 If you want to test it on Linux, go head ! But please, report to me so i can update the documentation and track bugs.
 
----
 
-The installation is really simple.
+1) New Installation process:
+
+To make the plugin works, copy it into the script directory of Maya.
+Do not forget the change `<username>` and `<version>` by what you have.
+
+    Windows : \Users\<username>\Documents\maya\<version>\scripts
+    OS X : /Users/<username>/Library/Preferences/Autodesk/maya/<version>/scripts
+
+Then Follow the steps below:
+
+1. Open Maya
+2. Open the script editor
+3. Write the code below and press enter:
+
+
+    import animationtimer
+    animationtimer.show()
+    
+
+To add a shortcut in a shelf:
+
+1. Select the shelf you want to put the shortcut. 
+2. Click on the Help menu at the top of the plugin window.
+3. Select the "add to shelf" action.
+
+That it !
+
+
+2) Old Installation process:
 
 To make the plugin works, copy it into a location where you will keep it safe.
-I recommand the script direcory of Maya.
+I recommend the script directory of Maya.
 
-Do not forget the change `<username>` and `<version>` by the version you are using.
+Do not forget the change `<username>` and `<version>` by what you have.
 
     Windows : \Users\<username>\Documents\maya\<version>\scripts
     OS X : /Users/<username>/Library/Preferences/Autodesk/maya/<version>/scripts
 
 Then follow the steps below:
 
-Open Maya.
-Open the script editor.
-Open the script inside the editor.
-Create a shelf button for a better way to open it in the future.
-Clic the shelf button to open the plugin !
-The installation process may change in the future.
+1. Open Maya.
+2. Open the script editor.
+3. Open the script inside the editor.
+4. Create a shelf button for a better way to open it in the future.
+5. Click the shelf button to open the plugin !
+6. The installation process may change in the future.
 
 
 ## Controls
@@ -77,7 +105,7 @@ I added 3 shortcuts keyboard keys to use those actions
 
 Tip : The "24 fps" and the "No auto stop" texts are actually buttons !
 
-Have fun :)
+Have fun ;)
 
 
 ## Contact
