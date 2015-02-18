@@ -18,7 +18,7 @@ import json
 # Constants
 TITLE = u"Animation Timer"
 AUTHOR = u"Yann Schmidt"
-VERSION = u"1.2"
+VERSION = u"1.3"
 USER_SCRIPT_DIR = cmds.internalVar(usd=True)
 USER_PREFS_DIR = cmds.internalVar(upd=True)
 DOCS_URL = 'http://yannschmidt.com/scripts/maya/animation-timer/docs/index'
