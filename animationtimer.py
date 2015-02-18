@@ -10,6 +10,7 @@ from shiboken import wrapInstance
 import maya.OpenMayaUI as omui
 import maya.OpenMaya as om
 import maya.cmds as cmds
+import maya.mel as mel
 
 from math import ceil
 import json
@@ -187,6 +188,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
                                      " inside a web browser")
         userguideAction.triggered.connect(self.on_open_documentation_triggered)
 
+        # Action : Add to Shelf
+        shelficon_action = QtGui.QAction(u"Add to Shelf", self)
+        shelficon_action.setStatusTip(u"Add a shortcut to the selected shelf.")
+        shelficon_action.triggered.connect(self.on_add_to_shelf)
+
         # Action : About Window
         action_about = QtGui.QAction(u"About", self)
         action_about.setStatusTip(u"About Animation Timer")
@@ -230,6 +236,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # Help menu
         menu_help = menubar.addMenu("Help")
         menu_help.addAction(userguideAction)
+        menu_help.addAction(shelficon_action)
+        menu_help.addSeparator()
         menu_help.addAction(action_about)
 
     def create_controls(self):
@@ -532,6 +540,25 @@ class AnimationTimerUI(QtGui.QMainWindow):
         url = QtCore.QUrl(DOCS_URL)
         return QtGui.QDesktopServices.openUrl(url)
 
+    def on_add_to_shelf(self):
+        """
+        Add the script to a shelf icon
+        """
+        # Query the current selected Shelf
+        gShelfTopLevel = mel.eval('$temp1=$gShelfTopLevel')
+        current_shelf = cmds.tabLayout(gShelfTopLevel, q=True, st=True)
+
+        # Create the shelf button
+        return cmds.shelfButton(
+            p=current_shelf,
+            rpt=True,
+            image="pythonFamily.png",
+            image1="anim_timer_shelficon.png",
+            stp="python",
+            l="Open Animation Timer v%s" % VERSION,
+            command="import animationtimer; animationtimer.show()"
+        )
+
     def on_new_timing_triggered(self):
         """
         When triggered, "create" a new timing.
@@ -548,7 +575,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         Open a .timing or .json file and load its contents.
         ---
         Save the filename
-        Save the file data to see what changes afteward.
+        Save the file data to see what changes afterward.
         """
         # Get the selected file
         filename, _ = QtGui.QFileDialog.getOpenFileName(
@@ -1169,7 +1196,6 @@ class CenterList(QtGui.QTableView):
 
             l.append(d)
 
-        print l
         return l
 
     # EVENTS
@@ -2000,6 +2026,22 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.settings.endGroup()
 
 
+def show():
+    """
+    Simply launching the program.
+    """
+    global atui
+
+    try:
+        atui.close()
+    except:
+        pass
+
+    atui = AnimationTimerUI()
+    atui.show()
+
+
+# Possibility to run the program by launching it simply...
 if __name__ == "__main__":
 
     try:
