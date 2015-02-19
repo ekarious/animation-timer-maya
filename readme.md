@@ -41,7 +41,7 @@ If you want to test it on Linux, go head ! But please, report to me so i can upd
 1) New Installation process:
 
 To make the plugin works, copy it into the script directory of Maya.
-Do not forget the change `<username>` and `<version>` by what you have.
+Do not forget to change `<username>` and `<version>` by what you have.
 
     Windows : \Users\<username>\Documents\maya\<version>\scripts
     OS X : /Users/<username>/Library/Preferences/Autodesk/maya/<version>/scripts
@@ -71,7 +71,7 @@ That it !
 To make the plugin works, copy it into a location where you will keep it safe.
 I recommend the script directory of Maya.
 
-Do not forget the change `<username>` and `<version>` by what you have.
+Do not forget to change `<username>` and `<version>` by what you have.
 
     Windows : \Users\<username>\Documents\maya\<version>\scripts
     OS X : /Users/<username>/Library/Preferences/Autodesk/maya/<version>/scripts
