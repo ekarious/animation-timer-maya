@@ -8,11 +8,11 @@ Or do you want to change a part of your animation with a timing you have in your
 If so, this program can help you.
 To kick start your blocking process or test out if the timing you think about is good or bad.
 
-Current version : 1.3
+Current version : 1.3.1
 
 ## Informations
 
-When you think about your animation, every time you think about something (like a key pose for exemple),
+When you think about your animation, every time you think about something (like a key pose for example),
 you can save the time and frame that pose might need to happened.
 
 Example :
@@ -93,8 +93,8 @@ Just launch it.
 For using it. You can use the timer controls:
 
 - Start : Start the timer / Capture current time and frame is already started.
-- Stop : Start the timer / Capture current time and frame is already started.
-- Reset : Erase all time captured and reset the timer and frame counter. / Stop the timer beforhand if not stopped.
+- Stop : Stop the timer.
+- Reset : Erase all time captured and reset the timer and frame counter. / Stop the timer beforehand if not stopped.
 
 I added 3 shortcuts keyboard keys to use those actions
 (for now, they are not editable)
