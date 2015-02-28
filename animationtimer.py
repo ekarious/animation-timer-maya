@@ -75,7 +75,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.create_layout()
         self.create_connections()
 
-        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings = AnimationTimerUI.load_settings_file()
         self.settings.setFallbacksEnabled(False)
         self._read_window_settings()
 
@@ -808,7 +808,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
             self.recent_timing_menu.addAction(self.empty_action)
 
     @classmethod
-    def _load_settings_file(cls):
+    def load_settings_file(cls):
         return QtCore.QSettings(QtCore.QSettings.IniFormat,
                                 QtCore.QSettings.UserScope,
                                 u'yannschmidt.com/Animation Timer',
@@ -889,6 +889,26 @@ class AnimationTimer(object):
         """
         frames = fps * ms / 1000
         return frames
+
+    @classmethod
+    def calculate_time(cls, frame, fps, fmt="mm:ss:zzz"):
+        """
+        Calculte the time based on the frame and the current fps number
+        :param frame: int
+        :param fps: int
+        :return:
+        """
+
+        ms = ceil(float(frame) / float(fps) * 1000)
+        ms = int(ms)
+
+        time = QtCore.QTime()
+        m = time.addMSecs(ms).minute()
+        sec = time.addMSecs(ms).second()
+        msec = time.addMSecs(ms).msec()
+        time.setHMS(0, m, sec, msec)
+
+        return time.toString(fmt)
 
     @classmethod
     def calculate_frame_length(cls, fps):
@@ -1113,6 +1133,10 @@ class CenterList(QtGui.QTableView):
 
         self.setModel(self.model)
 
+        # Connections
+
+        self.model.itemChanged.connect(self.on_data_changed)
+
     def add(self, time, frame, note):
         """
         Add a row to the table
@@ -1130,7 +1154,7 @@ class CenterList(QtGui.QTableView):
 
         # Frame
         row1 = QtGui.QStandardItem(str(frame))
-        row1.setEditable(False)
+        row1.setEditable(True)
         row1.setTextAlignment(QtCore.Qt.AlignCenter)
 
         # Note
@@ -1151,6 +1175,9 @@ class CenterList(QtGui.QTableView):
         for x in i:
             self.model.removeRow(x.row())
 
+    def update_cell(self):
+        pass
+
     def clear(self):
         """
         Clear the whole list.
@@ -1170,7 +1197,7 @@ class CenterList(QtGui.QTableView):
         """
         Set the headers for the list.
         """
-        headers = []
+        headers = list()
         headers.append(u"Times")
         headers.append(u"Frames")
         headers.append(u"Notes")
@@ -1189,7 +1216,7 @@ class CenterList(QtGui.QTableView):
         for row in range(0, row_count):
 
             # Get data from the columns...
-            d = {}
+            d = dict()
             d["time"] = self.model.item(row, 0).text()
             d["frame"] = self.model.item(row, 1).text()
             d["note"] = self.model.item(row, 2).text()
@@ -1219,6 +1246,54 @@ class CenterList(QtGui.QTableView):
             # make sure usual keys get dealt with
             super(CenterList, self).keyPressEvent(event)
 
+    # SIGNALS
+    # -------
+
+    def on_data_changed(self, item):
+        """
+        Catch a signal when an item is changed in the table.
+        ---
+        - When a note is changed, do nothing.
+        - When a frame number is changed, verify it is a number, then :
+            - if less than the previous number in the column, make it +1
+            - if more than the next number in the column, make in - 1
+            - Then calculate the nuw time based on the frame number and fps number.
+            - Update the data !
+        """
+        current_row = item.row()
+        current_column = item.column()
+        text = item.text()
+
+        # If the modified item is not in the column 1 (frames), stop there.
+        if current_column != 1:
+            return
+
+        # Verify user enters only numbers
+        try:
+            text = int(text)
+        except ValueError:
+            return warning_display("Animation Timer : Frame can only be valid number.")
+
+        # Get the previous and next items
+        previous_item = self.model.item(current_row - 1, current_column)
+        next_item = self.model.item(current_row + 1, current_column)
+
+        if previous_item is not None:
+            previous_text = int(previous_item.text())
+
+            if text <= previous_text:
+                item.setText(str(text + 1))
+
+        if next_item is not None:
+            next_text = int(next_item.text())
+
+            if text >= next_text:
+                item.setText(str(text - 1))
+
+        time_formated = AnimationTimer.calculate_time(text, atui.fps_window.current)
+        time_item = self.model.item(current_row, 0)
+        time_item.setText(time_formated)
+
 
 class FramePerSecondWindow(QtGui.QDialog):
 
@@ -1239,7 +1314,7 @@ class FramePerSecondWindow(QtGui.QDialog):
         self.create_layout()
         self.create_connections()
 
-        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings = AnimationTimerUI.load_settings_file()
         self.settings.setFallbacksEnabled(False)
         self._read_pref_settings()
 
@@ -1395,7 +1470,6 @@ class FramePerSecondWindow(QtGui.QDialog):
         self.settings.beginGroup("Preferences")
 
         default_fps = self.settings.value("default_fps", 24)
-
         FramePerSecondWindow.default = int(default_fps)
 
         self.settings.endGroup()
@@ -1616,7 +1690,7 @@ class RecentTiming(object):
         self.parent = parent
         self.recent_list = []
 
-        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings = AnimationTimerUI.load_settings_file()
         self.settings.setFallbacksEnabled(False)
 
         self.max_count = int(self.settings.value(
@@ -1663,8 +1737,11 @@ class RecentTiming(object):
         - index : new index to move it to [default: 0]
         """
         if isinstance(filename, QtCore.QDir):
-            self.recent_list.remove(filename.path())
-            self.recent_list.insert(index, filename.path())
+            try:
+                self.recent_list.remove(filename.path())
+                self.recent_list.insert(index, filename.path())
+            except ValueError:
+                pass
 
             self._uniqify()
 
@@ -1776,7 +1853,7 @@ class AnimationTimerPreferences(QtGui.QDialog):
         self.create_layout()
         self.create_connections()
 
-        self.settings = AnimationTimerUI._load_settings_file()
+        self.settings = AnimationTimerUI.load_settings_file()
         self.settings.setFallbacksEnabled(False)
         self._read_pref_settings()
 
