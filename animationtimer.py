@@ -758,6 +758,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         ---
         2 choices:
         - Dir provided : Use it unless...
+        - Dir provided : Use it unless...
         - Project dir enabled : if enabled, use it instead the default dir.
         """
         project_save_dir_enabled = _str_to_bool(self.settings.value(
@@ -849,7 +850,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
         settings.endGroup()
 
-    # Overloadding events
+    # Overloading events
     # -------------------
 
     def closeEvent(self, event):

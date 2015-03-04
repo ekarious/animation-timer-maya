@@ -27,7 +27,7 @@ The program will keep those times and frames in the main window for your use.
 
 Now, you have a rough information where to put your frames to start your animation !
 
-For a video tutorial, go : `http://yannschmidt.com/scripts/maya/animation-timer/docs/quick-start-guide/`
+For a video tutorial, go : `http://www.yannschmidt.com/scripts/maya/animation-timer/docs/quick-start-guide/`
 
 
 ## Installation
@@ -55,11 +55,11 @@ Then Follow the steps below:
 
     import animationtimer
     animationtimer.show()
-    
+
 
 To add a shortcut in a shelf:
 
-1. Select the shelf you want to put the shortcut. 
+1. Select the shelf you want to put the shortcut.
 2. Click on the Help menu at the top of the plugin window.
 3. Select the "add to shelf" action.
 
@@ -82,7 +82,7 @@ Then follow the steps below:
 2. Open the script editor.
 3. Open the script inside the editor.
 4. Create a shelf button for a better way to open it in the future.
-5. Click the shelf button to open the plugin !
+5. Click the shelf button to open the script !
 6. The installation process may change in the future.
 
 
@@ -111,4 +111,4 @@ Have fun ;)
 ## Contact
 
 If you want to send me suggestion or for a technical problem.
-Go to my website : http://yannschmidt.com/contact/
+Go to my website : http://www.yannschmidt.com/contact/
