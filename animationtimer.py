@@ -874,7 +874,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
 class AnimationTimer(object):
     """
-    Class for specific behevior operation.
+    Class for specific behavior operation.
     """
     def __init__(self):
         pass
