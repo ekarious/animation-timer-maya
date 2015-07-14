@@ -1769,10 +1769,10 @@ class FramePerSecondWindow(QtGui.QDialog):
                                      margin-left:15px;
                                      """)
 
-        self.radio_custom.setStyleSheet("""
+        self.radio_custom.setStyleSheet(self.radio_custom.setStyleSheet("""
                                      color:#707070;
                                      margin-left:15px;
-                                     """)
+                                     """))
 
         self.custom_fps_label.setStyleSheet("""
                                      color:#707070;
