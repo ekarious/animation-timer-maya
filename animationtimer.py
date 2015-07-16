@@ -1143,23 +1143,20 @@ class ATCenterList(QtGui.QTableWidget):
         elif event.key() == QtCore.Qt.Key_Escape:
             self.parent.on_stop_btn_clicked()
             event.accept()
-        elif event.key() == QtCore.Qt.Key_Backspace:
-            # if len(self.selectionModel().selectedRows()) > 0:
-            #     self.remove()
-            # else:
+        elif event.key() == QtCore.Qt.Key_Delete or event.key() == QtCore.Qt.Key_Backspace:
             self.parent.on_reset_btn_clicked()
             event.accept()
         else:
-            # make sure usual keys get dealt with
+            # Make sure usual keys get dealt with
             super(ATCenterList, self).keyPressEvent(event)
 
     def focusOutEvent(self, *args, **kwargs):
         # When this widget loose the focus, stop the timer
         setting = AnimationTimer.load_settings_file()
         if setting.value("Preferences/stop_timer_on_out_focus", True):
-            self.parent.timer.stop()
-            self.parent.start_btn.setText("Start")
-            self.parent.stop_btn.setEnabled(False)
+            self.parent.on_stop_btn_clicked()
+
+        super(ATCenterList, self).focusOutEvent(*args, **kwargs)
 
     # ---
 
