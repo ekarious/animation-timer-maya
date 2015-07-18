@@ -885,7 +885,9 @@ class AnimationTimer(object):
             image="pythonFamily.png",
             image1="at_shelficon.png",
             stp="python",
-            l="Open Animation Timer v%s" % AnimationTimer.VERSION,
+            iol="AT",
+            annotation=u"Open Animation Timer v%s" % AnimationTimer.VERSION,
+            label=u"Open Animation Timer v%s" % AnimationTimer.VERSION,
             command="import animationtimer; animationtimer.show()"
         )
 
