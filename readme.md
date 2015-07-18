@@ -55,6 +55,15 @@ Then:
 
 
 ## Usage
+
+The main usage of this script is to help animator decide of the timing of their shots.
+
+The script was made to be simply used with minimal effort.
+
+And like someone said : "A picture is worth a thousand words".
+So go to my website to see how to use it in video !
+
+
 ## Changelog
 
 ### 1.4:
@@ -84,39 +93,3 @@ Then:
 
 **Website :** http://www.yannschmidt.com/contact/
 **Email :** contact@yannschmidt.com
-
-
-
-
-
-
-
-
-## Purpose
-
-Ever had a timing in your head for your next animation ?
-Or do you want to change a part of your animation with a timing you have in your head ?
-
-If so, this program can help you.
-To kick start your blocking process or test out if the timing you think about is good or bad.
-
-Current version : 1.4
-
-## Informations
-
-When you think about your animation, every time you think about something (like a key pose for example),
-you can save the time and frame that pose might need to happened.
-
-Example :
-
-Let's say you want to animate a ball.
-
-When you start the timer, think as your animation starting in your head.
-Then click "Capture" every time the ball should hit the ground.
-
-The program will keep those times and frames in the main window for your use.
-(If you want to really keep it for later, do not forget to save them to a file !)
-
-Now, you have a rough information where to put your frames to start your animation !
-
-For a video tutorial, go : `http://www.yannschmidt.com/scripts/maya/animation-timer/docs/quick-start-guide/`
