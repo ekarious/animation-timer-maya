@@ -1,8 +1,39 @@
 # -*- coding: utf-8 -*-
 
-# Animation Timer
-# Author: Yann Schmidt
-# Maya 2014+
+"""
+Animation Timer.
+---
+
+Get timings out of your head !
+
+This script aims to help animators get rough timings they have inside their head
+into usable information like times and frames to speed up the blocking process.
+
+---
+
+Copyright 2015 Yann Schmidt
+
+Animation Timer is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of the License,
+or (at your option) any later version.
+
+Animation Timer is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+See the GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along with Animation Timer.
+If not, see http://www.gnu.org/licenses/.
+
+All advertising materials mentioning features or use of this software must display the following acknowledgement:
+- Direct mention of the author.
+- A link to the main page of the plugin in the official's author website.
+"""
+
+__author__ = u"Yann Schmidt"
+__version__ = u"1.4"
+__license__ = u"GPL"
+__email__ = u"contact@yannschmidt.com"
+__maya__ = u"2014+"
 
 from PySide import QtCore, QtGui
 from shiboken import wrapInstance
@@ -40,13 +71,14 @@ class AnimationTimerUI(QtGui.QMainWindow):
     MINIMUM_WIDTH = 400
     MINIMUM_HEIGHT = 300
     MAXIMUM_WIDTH = 800
+    MAXIMUM_HEIGHT = 700
 
     def __init__(self, parent=maya_main_window()):
         super(AnimationTimerUI, self).__init__(parent)
 
         self.setWindowTitle(AnimationTimer.TITLE)
         self.setMinimumSize(AnimationTimerUI.MINIMUM_WIDTH, AnimationTimerUI.MINIMUM_HEIGHT)
-        self.setMaximumWidth(AnimationTimerUI.MAXIMUM_WIDTH)
+        self.setMaximumSize(AnimationTimerUI.MAXIMUM_WIDTH, AnimationTimerUI.MAXIMUM_HEIGHT)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
         self.central_widget = QtGui.QWidget()
@@ -421,6 +453,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
     def open_about_window(self):
         message = u'<h3>%s</h3>' % AnimationTimer.TITLE
         message += u'<p>Version: {0}<br>'.format(AnimationTimer.VERSION)
+        message += u'Maya: {0}<br>'.format(__maya__)
         message += u'Author:  %s</p>' % AnimationTimer.AUTHOR
         message += u'<a style="color:white;" \
         href="http://www.yannschmidt.com">http://www.yannschmidt.com</a><br><br>'
@@ -759,8 +792,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
 class AnimationTimer(object):
 
     TITLE = u"Animation Timer"
-    AUTHOR = u"Yann Schmidt"
-    VERSION = u"1.4"
+    AUTHOR = __author__
+    VERSION = __version__
     USER_SCRIPT_DIR = pm.system.internalVar(userScriptDir=True)
     USER_PREFS_DIR = pm.system.internalVar(userPrefDir=True)
     ICON_DIR = pm.system.internalVar(userPrefDir=True) + 'icons/'
