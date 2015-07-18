@@ -883,7 +883,7 @@ class AnimationTimer(object):
             p=current_shelf,
             rpt=True,
             image="pythonFamily.png",
-            image1="anim_timer_shelficon.png",
+            image1="at_shelficon.png",
             stp="python",
             l="Open Animation Timer v%s" % AnimationTimer.VERSION,
             command="import animationtimer; animationtimer.show()"
