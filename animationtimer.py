@@ -30,7 +30,7 @@ All advertising materials mentioning features or use of this software must displ
 """
 
 __author__ = u"Yann Schmidt"
-__version__ = u"1.4"
+__version__ = u"1.4.1"
 __license__ = u"GPL"
 __email__ = u"contact@yannschmidt.com"
 __maya__ = u"2014+"
@@ -797,6 +797,7 @@ class AnimationTimer(object):
     USER_SCRIPT_DIR = pm.system.internalVar(userScriptDir=True)
     USER_PREFS_DIR = pm.system.internalVar(userPrefDir=True)
     ICON_DIR = pm.system.internalVar(userPrefDir=True) + 'icons/'
+    DOCS_URL = "http://www.yannschmidt.com/docs/product/scripts/animation-timer/"
 
     def __init__(self):
         pass
@@ -893,7 +894,8 @@ class AnimationTimer(object):
 
     @classmethod
     def on_open_docs_triggered(cls):
-        print "DOCS"
+        url = QtCore.QUrl(AnimationTimer.DOCS_URL)
+        return QtGui.QDesktopServices.openUrl(url)
 
     @classmethod
     def open_save_window(cls, parent):
