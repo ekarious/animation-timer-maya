@@ -222,7 +222,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menubar = self.menuBar()
 
         # File menu
-        self.menubar_file = menubar.addMenu("File")
+        self.menubar_file = menubar.addMenu(u"File")
         self.menubar_file.setTearOffEnabled(True)
         self.menubar_file.addAction(self.action_new_timing)
         self.menubar_file.addAction(self.action_open_timing)
@@ -235,7 +235,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_file.addAction(self.action_exit_app)
 
         # Edit menu
-        self.menubar_edit = menubar.addMenu("Edit")
+        self.menubar_edit = menubar.addMenu(u"Edit")
         self.menubar_edit.setTearOffEnabled(True)
         self.menubar_edit.addAction(self.action_discard_current_changes)
         self.menubar_edit.addAction(self.action_reset_offsets)
@@ -243,11 +243,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_edit.addAction(self.action_preferences_window)
 
         # Maya menu
-        self.menubar_maya = menubar.addMenu("Maya")
+        self.menubar_maya = menubar.addMenu(u"Maya")
         self.menubar_maya.addAction(self.action_timing_on_timeline)
 
         # Window menu
-        self.menubar_window = menubar.addMenu("Window")
+        self.menubar_window = menubar.addMenu(u"Window")
         self.menubar_window.addAction(self.action_reset_window_size)
         self.menubar_window.addSeparator()
         self.menubar_window.addAction(self.action_column_interval)
@@ -256,7 +256,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_window.addAction(self.action_always_on_top)
 
         # Help menu
-        self.menubar_help = menubar.addMenu("Help")
+        self.menubar_help = menubar.addMenu(u"Help")
         self.menubar_help.addAction(self.action_open_docs)
         self.menubar_help.addAction(self.action_add_to_shelf)
         self.menubar_help.addSeparator()
@@ -340,21 +340,21 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.stop_btn.setFlat(True)
 
         self.reset_btn = QtGui.QPushButton()
-        self.reset_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'reset.png')).path()).pixmap(16, 16))
+        self.reset_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'at_reset.png')).path()).pixmap(16, 16))
         self.reset_btn.setIconSize(QtCore.QSize(32, 32))
         self.reset_btn.setFixedSize(32, 32)
         self.reset_btn.setToolTip(u"Reset")
         self.reset_btn.setFlat(True)
 
         self.options_btn = QtGui.QPushButton()
-        self.options_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'options.png')).path()).pixmap(16, 16))
+        self.options_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'at_options.png')).path()).pixmap(16, 16))
         self.options_btn.setIconSize(QtCore.QSize(32, 32))
         self.options_btn.setFixedSize(32, 32)
         self.options_btn.setToolTip(u"Options Panel")
         self.options_btn.setFlat(True)
 
         self.sound_btn = QtGui.QPushButton()
-        self.sound_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'sound.png')).path()).pixmap(16, 16))
+        self.sound_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'at_sound.png')).path()).pixmap(16, 16))
         self.sound_btn.setIconSize(QtCore.QSize(32, 32))
         self.sound_btn.setFixedSize(32, 32)
         self.sound_btn.setToolTip(u"Toggle Sound Playback")
@@ -796,7 +796,7 @@ class AnimationTimer(object):
     VERSION = __version__
     USER_SCRIPT_DIR = pm.system.internalVar(userScriptDir=True)
     USER_PREFS_DIR = pm.system.internalVar(userPrefDir=True)
-    ICON_DIR = pm.system.internalVar(userPrefDir=True) + 'icons/'
+    ICON_DIR = os.path.join(pm.system.internalVar(userPrefDir=True), 'icons')
     DOCS_URL = "http://www.yannschmidt.com/docs/product/scripts/animation-timer/"
 
     def __init__(self):
@@ -1710,7 +1710,7 @@ class AnimationTimerOptions(QtGui.QDialog):
         self.timebox.setDisplayFormat("mm:ss:zzz")
 
         self.offset_time_eraser = QtGui.QPushButton()
-        self.offset_time_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'eraser.png')).path()).pixmap(16, 16))
+        self.offset_time_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'at_eraser.png')).path()).pixmap(16, 16))
         self.offset_time_eraser.setFlat(True)
         self.offset_time_eraser.setIconSize(QtCore.QSize(10, 10))
         self.offset_time_eraser.setFixedSize(16, 16)
@@ -1729,7 +1729,7 @@ class AnimationTimerOptions(QtGui.QDialog):
         self.framebox.setMaximum(99999)
 
         self.offset_frame_eraser = QtGui.QPushButton()
-        self.offset_frame_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'eraser.png')).path()).pixmap(16, 16))
+        self.offset_frame_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'at_eraser.png')).path()).pixmap(16, 16))
         self.offset_frame_eraser.setFlat(True)
         self.offset_frame_eraser.setIconSize(QtCore.QSize(10, 10))
         self.offset_frame_eraser.setFixedSize(16, 16)
