@@ -522,13 +522,13 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
     # Other Actions
 
-    def on_new_file_action_triggered(self):
+    def on_new_file_action_triggered(self, force=False):
         """
         Perform actions when 'new file" action is selected.
         A new file reset the offset and the fps number.
         :return: void
         """
-        if self.central_list.changed:
+        if self.central_list.changed and not force:
             message = u'The timing your are working on has changed.'
             message += u'<p>Do you want to save it before exiting ?<p>'
 
@@ -649,9 +649,9 @@ class AnimationTimerUI(QtGui.QMainWindow):
     def on_discard_changes_triggered(self):
         if self.central_list.changed:
             if self.file is None:
-                self.on_new_file_action_triggered()
+                self.on_new_file_action_triggered(force=True)
             else:
-                pass  # TODO: If file, reload it.
+                self.file.load()
 
     def on_reset_offsets_triggered(self):
         # Clear offsets in option window then accept.
