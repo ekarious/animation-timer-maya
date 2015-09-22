@@ -29,12 +29,6 @@ All advertising materials mentioning features or use of this software must displ
 - A link to the main page of the plugin in the official's author website.
 """
 
-__author__ = u"Yann Schmidt"
-__version__ = u"1.4.1"
-__license__ = u"GPL"
-__email__ = u"contact@yannschmidt.com"
-__maya__ = u"2014+"
-
 from PySide import QtCore, QtGui
 from shiboken import wrapInstance
 
@@ -46,6 +40,13 @@ import os
 import json
 from math import ceil
 from datetime import datetime
+
+
+__author__ = u"Yann Schmidt"
+__version__ = u"1.4.2"
+__license__ = u"GPL"
+__email__ = u"contact@yannschmidt.com"
+__maya__ = u"2014+"
 
 
 # Maya MainWindow Reference
@@ -222,7 +223,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         menubar = self.menuBar()
 
         # File menu
-        self.menubar_file = menubar.addMenu("File")
+        self.menubar_file = menubar.addMenu(u"File")
         self.menubar_file.setTearOffEnabled(True)
         self.menubar_file.addAction(self.action_new_timing)
         self.menubar_file.addAction(self.action_open_timing)
@@ -235,7 +236,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_file.addAction(self.action_exit_app)
 
         # Edit menu
-        self.menubar_edit = menubar.addMenu("Edit")
+        self.menubar_edit = menubar.addMenu(u"Edit")
         self.menubar_edit.setTearOffEnabled(True)
         self.menubar_edit.addAction(self.action_discard_current_changes)
         self.menubar_edit.addAction(self.action_reset_offsets)
@@ -243,11 +244,11 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_edit.addAction(self.action_preferences_window)
 
         # Maya menu
-        self.menubar_maya = menubar.addMenu("Maya")
+        self.menubar_maya = menubar.addMenu(u"Maya")
         self.menubar_maya.addAction(self.action_timing_on_timeline)
 
         # Window menu
-        self.menubar_window = menubar.addMenu("Window")
+        self.menubar_window = menubar.addMenu(u"Window")
         self.menubar_window.addAction(self.action_reset_window_size)
         self.menubar_window.addSeparator()
         self.menubar_window.addAction(self.action_column_interval)
@@ -256,7 +257,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_window.addAction(self.action_always_on_top)
 
         # Help menu
-        self.menubar_help = menubar.addMenu("Help")
+        self.menubar_help = menubar.addMenu(u"Help")
         self.menubar_help.addAction(self.action_open_docs)
         self.menubar_help.addAction(self.action_add_to_shelf)
         self.menubar_help.addSeparator()
@@ -340,21 +341,21 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.stop_btn.setFlat(True)
 
         self.reset_btn = QtGui.QPushButton()
-        self.reset_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'reset.png')).path()).pixmap(16, 16))
+        self.reset_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'ysp_reset.png')).path()).pixmap(16, 16))
         self.reset_btn.setIconSize(QtCore.QSize(32, 32))
         self.reset_btn.setFixedSize(32, 32)
         self.reset_btn.setToolTip(u"Reset")
         self.reset_btn.setFlat(True)
 
         self.options_btn = QtGui.QPushButton()
-        self.options_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'options.png')).path()).pixmap(16, 16))
+        self.options_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'ysp_options.png')).path()).pixmap(16, 16))
         self.options_btn.setIconSize(QtCore.QSize(32, 32))
         self.options_btn.setFixedSize(32, 32)
         self.options_btn.setToolTip(u"Options Panel")
         self.options_btn.setFlat(True)
 
         self.sound_btn = QtGui.QPushButton()
-        self.sound_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'sound.png')).path()).pixmap(16, 16))
+        self.sound_btn.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'ysp_sound.png')).path()).pixmap(16, 16))
         self.sound_btn.setIconSize(QtCore.QSize(32, 32))
         self.sound_btn.setFixedSize(32, 32)
         self.sound_btn.setToolTip(u"Toggle Sound Playback")
@@ -527,9 +528,28 @@ class AnimationTimerUI(QtGui.QMainWindow):
         A new file reset the offset and the fps number.
         :return: void
         """
+        if self.central_list.changed:
+            message = u'The timing your are working on has changed.'
+            message += u'<p>Do you want to save it before exiting ?<p>'
+
+            window = QtGui.QMessageBox.question(
+                self,
+                u'Timing has changed !',
+                message,
+                QtGui.QMessageBox.Save,
+                QtGui.QMessageBox.Close
+            )
+
+            if window == QtGui.QMessageBox.Save:
+                self.on_save_timing_triggered()
+
         # Reset interface
         self.on_reset_btn_clicked()
-        self.on_reset_offsets_triggered()
+
+        settings = AnimationTimer.load_settings_file()
+        if bool_str(settings.value("Preferences/reset_offsets_on_new_file", True)):
+            self.on_reset_offsets_triggered()
+
         self.fps_label.setNum(int(AnimationTimerOptions.default_fps))
         self.file_info_label.setText(u"Untitled")
 
@@ -548,7 +568,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
             self,
             'Open Timing',
             AnimationTimer.switch_filedialog_dir(),
-            'Timing / Json FIles (*.timing *.json)',
+            'Timing / Json Files (*.timing *.json)',
             '',
             QtGui.QFileDialog.DontUseNativeDialog
         )
@@ -796,7 +816,7 @@ class AnimationTimer(object):
     VERSION = __version__
     USER_SCRIPT_DIR = pm.system.internalVar(userScriptDir=True)
     USER_PREFS_DIR = pm.system.internalVar(userPrefDir=True)
-    ICON_DIR = pm.system.internalVar(userPrefDir=True) + 'icons/'
+    ICON_DIR = os.path.join(pm.system.internalVar(userPrefDir=True), 'icons')
     DOCS_URL = "http://www.yannschmidt.com/docs/product/scripts/animation-timer/"
 
     def __init__(self):
@@ -1710,7 +1730,7 @@ class AnimationTimerOptions(QtGui.QDialog):
         self.timebox.setDisplayFormat("mm:ss:zzz")
 
         self.offset_time_eraser = QtGui.QPushButton()
-        self.offset_time_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'eraser.png')).path()).pixmap(16, 16))
+        self.offset_time_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'ysp_eraser.png')).path()).pixmap(16, 16))
         self.offset_time_eraser.setFlat(True)
         self.offset_time_eraser.setIconSize(QtCore.QSize(10, 10))
         self.offset_time_eraser.setFixedSize(16, 16)
@@ -1729,7 +1749,7 @@ class AnimationTimerOptions(QtGui.QDialog):
         self.framebox.setMaximum(99999)
 
         self.offset_frame_eraser = QtGui.QPushButton()
-        self.offset_frame_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'eraser.png')).path()).pixmap(16, 16))
+        self.offset_frame_eraser.setIcon(QtGui.QIcon(QtCore.QDir(os.path.join(AnimationTimer.ICON_DIR, 'ysp_eraser.png')).path()).pixmap(16, 16))
         self.offset_frame_eraser.setFlat(True)
         self.offset_frame_eraser.setIconSize(QtCore.QSize(10, 10))
         self.offset_frame_eraser.setFixedSize(16, 16)
@@ -1964,199 +1984,162 @@ class AnimationTimerPreferences(QtGui.QDialog):
 
         self.parent = parent
         self.setWindowTitle(u"Preferences")
-        self.setFixedSize(400, 350)
+        self.setFixedSize(450, 350)
 
-        self.create_layout()
-        self.create_connections()
+        self.section_font = QtGui.QFont()
+        self.section_font.setPixelSize(24)
+
+        self.menu = QtGui.QListWidget()
+        self.menu.setFixedWidth(100)
+        self.menu.setStyleSheet("background-color:#191919;")
+
+        self.pages = QtGui.QStackedWidget()
+
+        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+
+        # Main Layout
+        self.widgets_layout = QtGui.QHBoxLayout()
+        self.widgets_layout.addWidget(self.menu)
+        self.widgets_layout.addWidget(self.pages)
+
+        self.main_layout = QtGui.QVBoxLayout()
+        self.main_layout.addLayout(self.widgets_layout)
+        self.main_layout.addWidget(self.button_box)
+
+        self.setLayout(self.main_layout)
+
+        # Add Pages
+        self._create_page_general()
+        self._create_page_timings()
+
+        self.menu.setCurrentRow(0)
+
+        # Connections
+        self.button_box.accepted.connect(self.on_accepted)
+        self.button_box.rejected.connect(self.on_rejected)
+        self.menu.currentItemChanged.connect(self.on_page_selected)
+        self.timings_default_dir_btn.clicked.connect(self._select_dir)
 
         self._read_pref_settings()
 
-    def create_layout(self):
-        policy = QtGui.QSizePolicy()
-        policy.setHorizontalPolicy(QtGui.QSizePolicy.Expanding)
-        policy.setVerticalPolicy(QtGui.QSizePolicy.Fixed)
+    def _create_page_general(self):
+        self.menu.addItem(u"General")
 
-        # Set Widgets
+        # Title Page
+        self.title_general = QtGui.QLabel(u'General')
+        self.title_general.setFont(self.section_font)
+        self.title_general.setStyleSheet("margin-bottom:15px;")
 
-        # Menu List
-        self.menu_list = QtGui.QListWidget()
-        self.menu_list.setFixedWidth(100)
-        self.menu_list.addItem(u'General')
-        self.menu_list.addItem(u'Timings')
-        self.menu_list.setCurrentRow(0)
-        self.menu_list.setStyleSheet("background-color:#191919;")
+        # Contents
+        self.general_default_fps_label = QtGui.QLabel(u"Default FPS")
+        self.general_default_fps_num = QtGui.QSpinBox()
+        self.general_default_fps_num.setRange(AnimationTimerOptions.MIN_FPS, AnimationTimerOptions.MAX_FPS)
+        self.general_default_fps_num.setSingleStep(2)
 
-        # Set Default FPS
-        self.default_custom_fps_spinbox = QtGui.QSpinBox()
-        self.default_custom_fps_spinbox.setRange(
-            AnimationTimerOptions.MIN_FPS, AnimationTimerOptions.MAX_FPS)
-        self.default_custom_fps_spinbox.setSingleStep(2)
+        self.general_reset_offsets_on_new_file_checkbox = QtGui.QCheckBox()
+        self.general_reset_offsets_on_new_file_label = QtGui.QLabel(u"Reset offsets on New File")
 
-        self.default_fps_label = QtGui.QLabel(u"fps")
+        self.general_auto_load_timing_checkbox = QtGui.QCheckBox()
+        self.general_auto_load_timing_label = QtGui.QLabel(u"Open the last timing you worked on when script start")
+        self.general_auto_load_timing_label.setWordWrap(True)
 
-        self.default_fps_layout = QtGui.QGridLayout()
-        self.default_fps_layout.addWidget(
-            self.default_custom_fps_spinbox, 0, 0)
-        self.default_fps_layout.addWidget(self.default_fps_label, 0, 1)
-        self.default_fps_layout.setColumnStretch(0, 1)
+        # Grid
+        self.grid_general = QtGui.QGridLayout()
+        self.grid_general.setColumnStretch(1, 1)
+        self.grid_general.setColumnMinimumWidth(0, 50)
+        self.grid_general.addWidget(self.general_default_fps_num, 0, 0, QtCore.Qt.AlignRight)
+        self.grid_general.addWidget(self.general_default_fps_label, 0, 1)
+        self.grid_general.addWidget(self.general_reset_offsets_on_new_file_checkbox, 1, 0, QtCore.Qt.AlignRight)
+        self.grid_general.addWidget(self.general_reset_offsets_on_new_file_label, 1, 1)
+        self.grid_general.addWidget(self.general_auto_load_timing_checkbox, 2, 0, QtCore.Qt.AlignRight)
+        self.grid_general.addWidget(self.general_auto_load_timing_label, 2, 1)
 
-        self.default_fps_group = QtGui.QGroupBox(u"Default FPS")
-        self.default_fps_group.setLayout(self.default_fps_layout)
-        self.default_fps_group.setSizePolicy(policy)
+        # Set layout
+        self.layout_general = QtGui.QVBoxLayout()
+        self.layout_general.setContentsMargins(7, 0, 5, 0)
+        self.layout_general.setAlignment(QtCore.Qt.AlignTop)
+        self.layout_general.addWidget(self.title_general)
+        self.layout_general.addLayout(self.grid_general)
 
-        # Set Default Width / height
-        self.default_mainwindow_width = QtGui.QSpinBox()
-        self.default_mainwindow_width.setRange(self.parent.minimumWidth(), self.parent.maximumWidth())
-        self.default_mainwindow_width.setSingleStep(1)
+        # Set Widget Page
+        self.page_general = QtGui.QWidget()
+        self.page_general.setLayout(self.layout_general)
 
-        self.default_mainwindow_height = QtGui.QSpinBox()
-        self.default_mainwindow_height.setRange(self.parent.minimumHeight(), self.parent.maximumHeight())
-        self.default_mainwindow_height.setSingleStep(1)
+        self.pages.addWidget(self.page_general)
 
-        self.default_mainwindow_width_label = QtGui.QLabel(u"Width")
-        self.default_mainwindow_height_label = QtGui.QLabel(u"Height")
+    def _create_page_timings(self):
+        self.menu.addItem(u"Timings")
 
-        self.default_mainwindow_separator = QtGui.QLabel(u"/")
+        # Title Page
+        self.title_timings = QtGui.QLabel(u'Timings')
+        self.title_timings.setFont(self.section_font)
+        self.title_timings.setStyleSheet("margin-bottom:15px;")
 
-        self.default_mainwindow_size_grid = QtGui.QGridLayout()
-        self.default_mainwindow_size_grid.addWidget(
-            self.default_mainwindow_width_label, 0, 0
-        )
-        self.default_mainwindow_size_grid.addWidget(
-            self.default_mainwindow_height_label, 0, 2
-        )
-        self.default_mainwindow_size_grid.addWidget(
-            self.default_mainwindow_width, 1, 0
-        )
-        self.default_mainwindow_size_grid.addWidget(
-            self.default_mainwindow_separator, 1, 1, QtCore.Qt.AlignCenter
-        )
-        self.default_mainwindow_size_grid.addWidget(
-            self.default_mainwindow_height, 1, 2
-        )
+        # Contents
+        self.timings_default_dir_label = QtGui.QLabel(u"Default Directory")
 
-        self.default_mainwindow_size_group = QtGui.QGroupBox(u"Default Main Window Size")
-        self.default_mainwindow_size_group.setLayout(self.default_mainwindow_size_grid)
-        self.default_mainwindow_size_group.setSizePolicy(policy)
+        self.timings_default_dir_edit = QtGui.QLineEdit()
+        self.timings_default_dir_edit.setReadOnly(True)
 
-        # Set Save Default Directory
-        self.default_dir_lineedit = QtGui.QLineEdit()
-        self.default_dir_lineedit.setReadOnly(True)
-        self.default_dir_btn = QtGui.QPushButton(u'...')
-        self.default_dir_btn.setFixedWidth(30)
-        self.default_dir_desc = QtGui.QLabel(
+        self.timings_default_dir_btn = QtGui.QPushButton(u'...')
+        self.timings_default_dir_btn.setFixedWidth(30)
+
+        self.timings_default_dir_desc = QtGui.QLabel(
             u'Will be used if you choose not to save timings in '
             'projects directories.<br>"Save as..." action will always let '
             'you choose where to save.')
-        self.default_dir_desc.setWordWrap(True)
-        self.default_dir_desc.setStyleSheet("""
+        self.timings_default_dir_desc.setWordWrap(True)
+        self.timings_default_dir_desc.setStyleSheet("""
                                             color:#888888;
                                             font-style:italic;
                                             """)
 
-        self.default_dir_hbox = QtGui.QHBoxLayout()
-        self.default_dir_hbox.addWidget(self.default_dir_lineedit)
-        self.default_dir_hbox.addWidget(self.default_dir_btn)
+        self.timings_default_dir_hbox = QtGui.QHBoxLayout()
+        self.timings_default_dir_hbox.addWidget(self.timings_default_dir_edit)
+        self.timings_default_dir_hbox.addWidget(self.timings_default_dir_btn)
 
-        self.default_dir_vbox = QtGui.QVBoxLayout()
-        self.default_dir_vbox.addLayout(self.default_dir_hbox)
-        self.default_dir_vbox.addWidget(self.default_dir_desc)
+        self.timings_default_dir_sep = QtGui.QFrame()
+        self.timings_default_dir_sep.setFrameShape(QtGui.QFrame.HLine)
 
-        self.default_dir_group = QtGui.QGroupBox(u'Default save directory')
-        self.default_dir_group.setLayout(self.default_dir_vbox)
+        self.timings_dir_layout = QtGui.QVBoxLayout()
+        self.timings_dir_layout.addWidget(self.timings_default_dir_label)
+        self.timings_dir_layout.addLayout(self.timings_default_dir_hbox)
+        self.timings_dir_layout.addWidget(self.timings_default_dir_desc)
+        self.timings_dir_layout.addWidget(self.timings_default_dir_sep)
 
-        # Auto load the last timing opened
-        self.auto_load_timing = QtGui.QCheckBox(
-            u"Auto load last timing you worked on.")
+        self.timings_save_in_project_dir_checkbox = QtGui.QCheckBox()
+        self.timings_save_in_project_dir_label = QtGui.QLabel(u"Save timings in projects directories")
 
-        self.auto_load_timing_vbox = QtGui.QVBoxLayout()
-        self.auto_load_timing_vbox.addWidget(self.auto_load_timing)
+        self.timings_recent_timing_label = QtGui.QLabel(u'timings in Recent Timings')
+        self.timings_recent_timing_spinbox = QtGui.QSpinBox()
+        self.timings_recent_timing_spinbox.setFixedWidth(40)
+        self.timings_recent_timing_spinbox.setValue(10)
+        self.timings_recent_timing_spinbox.setRange(0, 20)
+        self.timings_recent_timing_spinbox.setButtonSymbols(QtGui.QAbstractSpinBox.NoButtons)
+        self.timings_recent_timing_spinbox.setSingleStep(1)
 
-        self.auto_load_timing_group = QtGui.QGroupBox(
-            u'When application starts')
-        self.auto_load_timing_group.setLayout(self.auto_load_timing_vbox)
+        # Grid
+        self.grid_timings = QtGui.QGridLayout()
+        self.grid_timings.setColumnStretch(1, 1)
+        self.grid_timings.setColumnMinimumWidth(0, 50)
+        self.grid_timings.addLayout(self.timings_dir_layout, 0, 0, 1, 2)
+        self.grid_timings.addWidget(self.timings_save_in_project_dir_checkbox, 1, 0, QtCore.Qt.AlignRight)
+        self.grid_timings.addWidget(self.timings_save_in_project_dir_label, 1, 1)
+        self.grid_timings.addWidget(self.timings_recent_timing_spinbox, 2, 0, QtCore.Qt.AlignRight)
+        self.grid_timings.addWidget(self.timings_recent_timing_label, 2, 1)
 
-        # Projects
+        # Set layout
+        self.layout_timings = QtGui.QVBoxLayout()
+        self.layout_timings.setContentsMargins(7, 0, 5, 0)
+        self.layout_timings.setAlignment(QtCore.Qt.AlignTop)
+        self.layout_timings.addWidget(self.title_timings)
+        self.layout_timings.addLayout(self.grid_timings)
 
-        # Save timings in project directories
-        self.project_save_in_dirs = QtGui.QCheckBox(
-            u"Save timings in projects directories")
+        # Set Widget Page
+        self.page_timings = QtGui.QWidget()
+        self.page_timings.setLayout(self.layout_timings)
 
-        self.project_save_in_dirs_vbox = QtGui.QVBoxLayout()
-        self.project_save_in_dirs_vbox.addWidget(self.project_save_in_dirs)
-
-        self.project_save_in_dirs_group = QtGui.QGroupBox(
-            u'Projects')
-        self.project_save_in_dirs_group.setLayout(self.project_save_in_dirs_vbox)
-
-        # Recent Timings
-
-        # Number to remember
-        self.recent_timing_label = QtGui.QLabel(u'timings')
-        self.recent_timing_spinbox = QtGui.QSpinBox()
-        self.recent_timing_spinbox.setFixedWidth(40)
-        self.recent_timing_spinbox.setValue(10)
-        self.recent_timing_spinbox.setRange(0, 20)
-        self.recent_timing_spinbox.setButtonSymbols(
-            QtGui.QAbstractSpinBox.NoButtons)
-        self.recent_timing_spinbox.setSingleStep(1)
-
-        self.recent_timing_hbox = QtGui.QHBoxLayout()
-        self.recent_timing_hbox.addWidget(self.recent_timing_spinbox)
-        self.recent_timing_hbox.addWidget(self.recent_timing_label)
-
-        self.recent_timing_group = QtGui.QGroupBox(
-            u'Number to remember')
-        self.recent_timing_group.setLayout(self.recent_timing_hbox)
-
-        #  Button Box
-        self.button_box = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok |
-                                                 QtGui.QDialogButtonBox.Cancel)
-        self.button_box.accepted.connect(self.on_accepted)
-        self.button_box.rejected.connect(self.on_rejected)
-
-        # Set Pages
-
-        # General tab
-        self.vbox_general = QtGui.QVBoxLayout()
-        self.vbox_general.setAlignment(QtCore.Qt.AlignTop)
-        self.vbox_general.addWidget(self.default_fps_group)
-        self.vbox_general.addWidget(self.auto_load_timing_group)
-
-        self.tab_general = QtGui.QWidget()
-        self.tab_general.setLayout(self.vbox_general)
-
-        # Timings tab
-        self.vbox_project = QtGui.QVBoxLayout()
-        self.vbox_project.setAlignment(QtCore.Qt.AlignTop)
-        self.vbox_project.addWidget(self.default_dir_group)
-        self.vbox_project.addWidget(self.project_save_in_dirs_group)
-        self.vbox_project.addWidget(self.recent_timing_group)
-
-        self.tab_project = QtGui.QWidget()
-        self.tab_project.setLayout(self.vbox_project)
-
-        # Stacked the *pages*
-        self.menu_stacked = QtGui.QStackedWidget()
-        self.menu_stacked.addWidget(self.tab_general)
-        self.menu_stacked.addWidget(self.tab_project)
-
-        # Layout for widgets
-        self.main_hbox = QtGui.QHBoxLayout()
-        self.main_hbox.addWidget(self.menu_list)
-        self.main_hbox.addWidget(self.menu_stacked)
-
-        # layout for main + buttons
-        self.main_vbox = QtGui.QVBoxLayout()
-        self.main_vbox.addLayout(self.main_hbox)
-        self.main_vbox.addWidget(self.button_box)
-
-        self.setLayout(self.main_vbox)
-
-    def create_connections(self):
-        self.menu_list.currentItemChanged.connect(self._change_current_tab)
-
-        self.default_dir_btn.clicked.connect(self._select_dir)
+        self.pages.addWidget(self.page_timings)
 
     # ---
 
@@ -2169,9 +2152,9 @@ class AnimationTimerPreferences(QtGui.QDialog):
 
     # ---
 
-    def _change_current_tab(self):
-        row = self.menu_list.currentRow()
-        self.menu_stacked.setCurrentIndex(row)
+    def on_page_selected(self):
+        row = self.menu.currentRow()
+        self.pages.setCurrentIndex(row)
 
     def _select_dir(self):
 
@@ -2196,23 +2179,15 @@ class AnimationTimerPreferences(QtGui.QDialog):
         settings.beginGroup("Preferences")
 
         # General
-        self.default_custom_fps_spinbox.setValue(
-            int(settings.value("default_fps", 24)))
+        self.general_default_fps_num.setValue(int(settings.value("default_fps", 24)))
+        self.general_reset_offsets_on_new_file_checkbox.setChecked(
+            bool_str(settings.value("reset_offsets_on_new_file", True)))
 
-        directory = QtCore.QDir(
-            settings.value(
-                "default_directory",
-                QtCore.QDir.homePath()))
-        self.default_dir_lineedit.setText(directory.path())
-
-        self.recent_timing_spinbox.setValue(
-            int(settings.value("max_recent_timing", 10)))
-
-        self.auto_load_timing.setChecked(
-            bool_str(settings.value("auto_load_last_timing", False)))
-
-        self.project_save_in_dirs.setChecked(
-            bool_str(settings.value("project_save_in_dirs", True)))
+        directory = QtCore.QDir(settings.value("default_directory", QtCore.QDir.homePath()))
+        self.timings_default_dir_edit.setText(directory.path())
+        self.timings_recent_timing_spinbox.setValue(int(settings.value("max_recent_timing", 10)))
+        self.general_auto_load_timing_checkbox.setChecked(bool_str(settings.value("auto_load_last_timing", False)))
+        self.timings_save_in_project_dir_checkbox.setChecked(bool_str(settings.value("project_save_in_dirs", True)))
 
         settings.endGroup()
 
@@ -2222,13 +2197,14 @@ class AnimationTimerPreferences(QtGui.QDialog):
         settings.beginGroup("Preferences")
 
         # For directory, passes it to QDir for multi-system
-        directory = QtCore.QDir(self.default_dir_lineedit.text())
+        directory = QtCore.QDir(self.timings_default_dir_edit.text())
 
-        settings.setValue("default_fps", self.default_custom_fps_spinbox.value())
+        settings.setValue("default_fps", self.general_default_fps_num.value())
+        settings.setValue("reset_offsets_on_new_file", self.general_reset_offsets_on_new_file_checkbox.isChecked())
         settings.setValue("default_directory", directory.path())
-        settings.setValue("max_recent_timing", self.recent_timing_spinbox.value())
-        settings.setValue("auto_load_last_timing", self.auto_load_timing.isChecked())
-        settings.setValue("project_save_in_dirs", self.project_save_in_dirs.isChecked())
+        settings.setValue("max_recent_timing", self.timings_recent_timing_spinbox.value())
+        settings.setValue("auto_load_last_timing", self.general_auto_load_timing_checkbox.isChecked())
+        settings.setValue("project_save_in_dirs", self.timings_save_in_project_dir_checkbox.isChecked())
 
         settings.endGroup()
 
@@ -2347,17 +2323,6 @@ def show():
     :return: void
     """
     global atui
-
-    try:
-        atui.close()
-    except:
-        pass
-
-    atui = AnimationTimerUI()
-    atui.show()
-
-
-if __name__ == "__main__":
 
     try:
         atui.close()
