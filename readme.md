@@ -8,7 +8,7 @@ This script aims to help animators get rough timings they have inside their head
 
 ## Informations
 
-- Version : 1.4
+- Version : 1.4.2
 - Maya : 2014+
 - License : GPL
 
