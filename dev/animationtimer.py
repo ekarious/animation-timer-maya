@@ -712,7 +712,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
     def _capture(self):
         """
-        Capture current time, frame count and notes and an instant 't'.
+        Capture current time, frame count and notes at an instant 't'.
         :return: void
         """
         time = self.timer.time.toString("mm:ss:zzz")
