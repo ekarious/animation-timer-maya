@@ -43,7 +43,7 @@ from datetime import datetime
 
 
 __author__ = u"Yann Schmidt"
-__version__ = u"1.4.2"
+__version__ = u"1.4.3"
 __license__ = u"GPL"
 __email__ = u"contact@yannschmidt.com"
 __maya__ = u"2014+"
@@ -204,8 +204,12 @@ class AnimationTimerUI(QtGui.QMainWindow):
         # ---
 
         # Action : Documentations
-        self.action_open_docs = QtGui.QAction(u"Documentation", self)
-        self.action_open_docs.setStatusTip(u"Open the Documentation inside a web browser")
+        self.action_open_docs = QtGui.QAction(u"Script on website", self)
+        self.action_open_docs.setStatusTip(u"Open the script page inside a web browser")
+
+        # Action : Feedback
+        self.action_feedback_email = QtGui.QAction(u"Send a feedback", self)
+        self.action_feedback_email.setStatusTip(u"Open your default mail client to send a feedback")
 
         # Action : Add to Shelf
         self.action_add_to_shelf = QtGui.QAction(u"Add to Shelf", self)
@@ -260,6 +264,8 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.menubar_help = menubar.addMenu(u"Help")
         self.menubar_help.addAction(self.action_open_docs)
         self.menubar_help.addAction(self.action_add_to_shelf)
+        self.menubar_help.addSeparator()
+        self.menubar_help.addAction(self.action_feedback_email)
         self.menubar_help.addSeparator()
         self.menubar_help.addAction(self.action_about_window)
 
@@ -426,6 +432,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
         self.action_column_note.triggered.connect(self.central_list.col_note_toggle_visibility)
         self.action_always_on_top.triggered.connect(self.on_window_always_on_top_triggered)
         self.action_open_docs.triggered.connect(AnimationTimer.on_open_docs_triggered)
+        self.action_feedback_email.triggered.connect(AnimationTimer.on_send_feedback_triggered)
         self.action_add_to_shelf.triggered.connect(AnimationTimer.on_add_to_shelf)
         self.action_about_window.triggered.connect(self.open_about_window)
 
@@ -712,7 +719,7 @@ class AnimationTimerUI(QtGui.QMainWindow):
 
     def _capture(self):
         """
-        Capture current time, frame count and notes and an instant 't'.
+        Capture current time, frame count and notes at an instant 't'.
         :return: void
         """
         time = self.timer.time.toString("mm:ss:zzz")
@@ -817,7 +824,7 @@ class AnimationTimer(object):
     USER_SCRIPT_DIR = pm.system.internalVar(userScriptDir=True)
     USER_PREFS_DIR = pm.system.internalVar(userPrefDir=True)
     ICON_DIR = os.path.join(pm.system.internalVar(userPrefDir=True), 'icons')
-    DOCS_URL = "http://www.yannschmidt.com/docs/product/scripts/animation-timer/"
+    SCRIPT_WEBSITE_URL = "http://www.yannschmidt.com/blog/animation-timer/"
 
     def __init__(self):
         pass
@@ -914,7 +921,12 @@ class AnimationTimer(object):
 
     @classmethod
     def on_open_docs_triggered(cls):
-        url = QtCore.QUrl(AnimationTimer.DOCS_URL)
+        url = QtCore.QUrl(AnimationTimer.SCRIPT_WEBSITE_URL)
+        return QtGui.QDesktopServices.openUrl(url)
+
+    @classmethod
+    def on_send_feedback_triggered(cls):
+        url = QtCore.QUrl('mailto:' + __email__ + '?subject=Animation Timer - ' + __version__ + ' - Feedback')
         return QtGui.QDesktopServices.openUrl(url)
 
     @classmethod
